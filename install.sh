@@ -7,8 +7,9 @@ WADEBOT_DIR="$HOME/.wadebot"
 VOICES_DIR="$WADEBOT_DIR/voices"
 REPO_URL="https://github.com/WadeWagmi/wadebot.git"
 OVERLAY_PORT=8888
-PIPER_VOICE="en_US-libritts-high"
-PIPER_VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/libritts/high"
+PIPER_VOICE=""
+PIPER_SPEAKER=""
+SKIP_VOICE=false
 
 # --- Colors ---
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; PURPLE='\033[0;35m'; NC='\033[0m'
@@ -58,6 +59,63 @@ ensure_brew() {
     ok "Homebrew available"
 }
 
+# --- Voice Selection ---
+head "Voice Selection"
+if [ -t 0 ]; then
+    echo ""
+    echo -e "🎙️  Choose a voice:"
+    echo ""
+    echo -e "  1) Male (US English) — default"
+    echo -e "  2) Female (US English)"
+    echo -e "  3) Male (UK English)"
+    echo -e "  4) Female (UK English)"
+    echo -e "  5) Skip — I'll configure my own voice later"
+    echo ""
+    printf "Enter choice [1]: "
+    read -r VOICE_CHOICE
+    VOICE_CHOICE="${VOICE_CHOICE:-1}"
+else
+    VOICE_CHOICE="1"
+    info "Non-interactive mode, defaulting to Male (US English)"
+fi
+
+case "$VOICE_CHOICE" in
+    1)
+        PIPER_VOICE="en_US-libritts-high"
+        PIPER_SPEAKER=34
+        PIPER_VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/libritts/high"
+        ok "Selected: Male (US English)"
+        ;;
+    2)
+        PIPER_VOICE="en_US-libritts-high"
+        PIPER_SPEAKER=92
+        PIPER_VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/libritts/high"
+        ok "Selected: Female (US English)"
+        ;;
+    3)
+        PIPER_VOICE="en_GB-cori-high"
+        PIPER_SPEAKER=0
+        PIPER_VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/cori/high"
+        ok "Selected: Male (UK English)"
+        ;;
+    4)
+        PIPER_VOICE="en_GB-jenny_dioco-medium"
+        PIPER_SPEAKER=0
+        PIPER_VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/jenny_dioco/medium"
+        ok "Selected: Female (UK English)"
+        ;;
+    5)
+        SKIP_VOICE=true
+        ok "Skipping voice download"
+        ;;
+    *)
+        warn "Invalid choice, defaulting to Male (US English)"
+        PIPER_VOICE="en_US-libritts-high"
+        PIPER_SPEAKER=34
+        PIPER_VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/libritts/high"
+        ;;
+esac
+
 # --- 1. Install Piper TTS ---
 head "Installing Piper TTS"
 if has piper; then
@@ -89,13 +147,16 @@ else
     fi
 fi
 
-# --- 2. Download default voice ---
+# --- 2. Download voice ---
 head "Setting up voice"
 mkdir -p "$VOICES_DIR"
 ONNX="$VOICES_DIR/${PIPER_VOICE}.onnx"
 JSON="$VOICES_DIR/${PIPER_VOICE}.onnx.json"
 
-if [[ -f "$ONNX" && -f "$JSON" ]]; then
+if [[ "$SKIP_VOICE" == "true" ]]; then
+    ok "Voice download skipped (configure manually in .env)"
+    ONNX=""
+elif [[ -f "$ONNX" && -f "$JSON" ]]; then
     ok "Voice already downloaded"
 else
     info "Downloading $PIPER_VOICE voice model..."
@@ -168,7 +229,7 @@ else
 # wadebot configuration
 TTS_ENGINE=piper
 PIPER_MODEL=$ONNX
-PIPER_SPEAKER=34
+PIPER_SPEAKER=${PIPER_SPEAKER:-34}
 OVERLAY_URL=http://localhost:$OVERLAY_PORT/overlay.html
 OVERLAY_PORT=$OVERLAY_PORT
 AGENT_NAME=MyAgent
@@ -205,9 +266,9 @@ fi
 
 # --- 8. Test TTS ---
 head "Testing TTS"
-if has piper; then
+if has piper && [[ -n "$ONNX" && -f "$ONNX" ]]; then
     info "Speaking test phrase..."
-    echo "wadebot is ready" | piper --model "$ONNX" --speaker 34 --output_raw 2>/dev/null | \
+    echo "wadebot is ready" | piper --model "$ONNX" --speaker "${PIPER_SPEAKER:-34}" --output_raw 2>/dev/null | \
         (has play && play -r 22050 -e signed -b 16 -c 1 -t raw - 2>/dev/null || \
          has aplay && aplay -r 22050 -f S16_LE -c 1 2>/dev/null || \
          cat > /dev/null) && ok "TTS works!" || warn "TTS test failed (audio playback issue — TTS itself may be fine)"
