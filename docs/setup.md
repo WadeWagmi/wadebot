@@ -3,9 +3,8 @@
 ## Prerequisites
 
 - **OBS Studio** (streaming)
-- **Python 3.10+** (game controllers)
-- **Node.js 18+** (overlay server)
-- **Chrome/Chromium** (game automation via CDP)
+- **Python 3.10+** (scripts)
+- **Node.js 18+** (optional, overlay dev)
 
 ## Step 1: TTS
 
@@ -42,14 +41,31 @@ Set your TTS script to output to BlackHole. Set OBS to capture BlackHole as an a
 
 ## Step 2: Avatar
 
-### Veadotube Mini
+### Option A: Veadotube Mini (PNG-Swap)
 
 1. Download from [veadotube.com](https://veadotube.com/)
-2. Create your avatar states (idle, talking, excited, tilted)
+2. Create your avatar states (idle, talking, excited, etc.)
 3. Enable the API in settings
 4. Note the port from `~/.veadotube/instances/mini-*`
 
-### No-App Fallback
+### Option B: VTube Studio (Live2D)
+
+1. Install [VTube Studio](https://denchisoft.com/) (available on Steam or standalone)
+2. Load your Live2D model (`.moc3` format + textures)
+3. Set up expressions and hotkeys in VTube Studio
+4. Enable the API: Settings → API → Start Server (default port 8001)
+5. Set environment variable: `export WADEBOT_VTUBE_STUDIO_URL=ws://localhost:8001`
+6. On first connection from wadebot, approve the plugin in VTube Studio
+
+VTube Studio provides:
+- Full Live2D physics and rigging
+- Expression/motion hotkeys controllable via API
+- Lip sync from audio input
+- Parameter injection for fine-grained control
+
+See the [VTube Studio API docs](https://github.com/DenchiSoft/VTubeStudio) for full details.
+
+### Option C: PNG Fallback (No External App)
 
 Use the overlay's built-in avatar system — just provide PNG images for each state. No external app needed.
 
@@ -65,46 +81,32 @@ In OBS:
 2. Set width/height to match your canvas
 3. Add a Color Key filter for `#ff00ff` (magenta)
 
-## Step 4: Game Automation
-
-```bash
-# Launch Chrome with remote debugging
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
-  --remote-debugging-port=9222 \
-  --remote-allow-origins=* \
-  --user-data-dir=/tmp/chrome-vtuber \
-  "https://your-game-url.com"
-
-# Install Python dependencies
-pip install websocket-client Pillow
-```
-
-## Step 5: OBS Configuration
+## Step 4: OBS Configuration
 
 Recommended scene layout:
 ```
-┌─────────────────────────────┐
-│                             │
-│      Game (Browser)         │
-│                             │
-│  ┌──────┐                   │
-│  │Avatar│    [Overlay]      │
-│  │      │                   │
-│  └──────┘                   │
-└─────────────────────────────┘
+┌─────────────────────────────────┐
+│                                 │
+│      Content (Browser/App)      │
+│                                 │
+│  ┌──────┐                       │
+│  │Avatar│    [Overlay]          │
+│  │      │                       │
+│  └──────┘                       │
+└─────────────────────────────────┘
 ```
 
-- **Game source:** Window/Display capture of Chrome
-- **Avatar:** Veadotube window capture (or browser source)
+- **Content source:** Window/Display capture of your streaming content
+- **Avatar:** Veadotube window capture, VTube Studio window, or browser source (PNG)
 - **Overlay:** Browser source at localhost:8888
 
-## Step 6: Go Live
+## Step 5: Go Live
 
 The agent handles the rest. Start your stream destination (OBS → Settings → Stream), and the agent will:
 
-1. Detect the game state
-2. Make decisions
-3. Narrate via TTS
-4. React with avatar expressions
-5. Post highlights to socials
+1. Create or present content
+2. Narrate via TTS
+3. React with avatar expressions
+4. Post highlights to socials
+5. Interact with chat
 6. Keep going until session ends

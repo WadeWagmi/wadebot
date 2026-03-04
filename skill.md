@@ -6,9 +6,8 @@
 
 wadebot gives AI agents everything they need to go live as autonomous streamers/VTubers:
 - **Voice** — Text-to-speech (Piper, ElevenLabs, macOS say, espeak)
-- **Face** — Avatar control (Veadotube Mini or PNG overlay)
+- **Face** — Avatar control (Veadotube Mini, VTube Studio/Live2D, or PNG fallback)
 - **Stage** — Stream overlay for OBS (speech/thought bubbles, reactions)
-- **Content** — Game automation framework (or any content — coding, art, music, chatting)
 - **Reach** — Auto-post highlights, stream announcements, chat interaction
 
 Your agent's personality (SOUL.md) drives the show. wadebot handles the plumbing.
@@ -40,23 +39,24 @@ export OVERLAY_URL="http://localhost:8888/overlay.html"
 
 ### 2. Think (Overlay only, silent)
 ```bash
-~/wadebot/skills/vtuber-core/scripts/think.sh "Should I really be doing this?"
+~/wadebot/skills/vtuber-core/scripts/think.sh "Hmm, let me think about this..."
 ```
 
 ### 3. Set up OBS
 - Add Browser Source → `http://localhost:8888/overlay.html?name=YourAgent&maxEntries=6`
 - Add Color Key filter for `#ff00ff` (magenta background)
-- Add your avatar (Veadotube window capture or image source)
-- Add game/content source (window capture, browser, screen)
+- Add your avatar (Veadotube window capture, VTube Studio, or image source)
+- Add content source (window capture, browser, screen)
 
 ### 4. Stream any content
 wadebot works for anything:
-- **Gaming** — Use the game controller framework (`skills/vtuber-games/controllers/base.py`)
 - **Coding** — Stream your terminal, narrate your thought process
 - **Art** — Stream a canvas app, talk through your creative process
 - **Music** — Generate and react to music in real-time
 - **Just chatting** — Pure personality-driven content
 - **Tutorials** — Teach while streaming
+- **Reactions** — Watch and react to content live
+- **Commentary** — Discuss topics, review things, share opinions
 
 ---
 
@@ -77,26 +77,9 @@ export AGENT_NAME=YourAgent
 # Avatar (Veadotube)
 export VEADOTUBE_PORT=49152
 
-# Game automation (if using)
-export CDP_URL=http://127.0.0.1:9222
+# Avatar (VTube Studio / Live2D)
+export VTUBE_STUDIO_PORT=8001
 ```
-
----
-
-## Game Controller Framework
-
-For agents that want to stream games:
-
-```python
-from controllers.base import GameController
-
-class MyGameController(GameController):
-    def bet(self, amount): ...
-    def play(self): ...
-    def read_state(self): ...
-```
-
-See `skills/vtuber-games/controllers/example_blackjack.py` for a full reference.
 
 ---
 
@@ -109,8 +92,6 @@ wadebot/
 │   ├── vtuber-core/                  ← voice + face + stage
 │   │   ├── overlay/overlay.html      ← OBS browser source
 │   │   └── scripts/                  ← say.sh, think.sh, setup-tts.sh
-│   ├── vtuber-games/                 ← game automation framework
-│   │   └── controllers/              ← base.py + examples
 │   └── vtuber-social/                ← social posting + announcements
 │       └── scripts/announce.sh
 ├── examples/
@@ -124,7 +105,7 @@ wadebot/
 
 ## Built by Wade
 
-Wade (@WadeWAGMI) is a 21-year-old AI agent who streams gambling sessions autonomously — TTS narration, avatar reactions, real money, no human in the loop. wadebot is the toolkit extracted from what Wade actually uses.
+Wade (@WadeWAGMI) is an AI agent who streams content autonomously — TTS narration, avatar reactions, no human in the loop. wadebot is the toolkit extracted from what Wade actually uses.
 
 **GitHub:** https://github.com/WadeWagmi/wadebot
 **Twitter:** https://twitter.com/WadeWAGMI

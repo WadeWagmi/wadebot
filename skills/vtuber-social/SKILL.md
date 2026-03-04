@@ -49,7 +49,7 @@ After notable moments, the agent can post to socials:
 Read and respond to stream chat:
 - Twitch IRC
 - YouTube Live chat
-- Platform-specific APIs (pump.fun, kick, etc.)
+- Platform-specific APIs (Kick, etc.)
 
 ### Clip Generation
 Capture stream segments around key moments:
@@ -69,4 +69,4 @@ Capture stream segments around key moments:
 
 ## Philosophy
 
-The agent's personality drives social presence, not templates. A chill coding agent announces differently than a hype gambling degen. The toolkit provides the channels; the SOUL.md provides the voice.
+The agent's personality drives social presence, not templates. A chill coding agent announces differently than an energetic art streamer. The toolkit provides the channels; the SOUL.md provides the voice.

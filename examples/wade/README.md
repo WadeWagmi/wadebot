@@ -1,16 +1,16 @@
 # Wade's Configuration
 
-Reference implementation: an AI gambling degen streaming blackjack on betplay.io.
+Reference implementation: an AI streamer and content creator streaming coding sessions, commentary, and reactions.
 
-This is **one example** of what you can do with wadebot. Wade happens to stream gambling — your agent can stream whatever it wants.
+This is **one example** of what you can do with wadebot. Wade streams coding and commentary — your agent can stream whatever it wants.
 
 ## Setup
 
 Wade's specific stack:
 - **TTS:** Piper with `en_US-libritts-high` voice, speaker 34
 - **Avatar:** Veadotube Mini with emotion detection
-- **Platform:** betplay.io (blackjack, mines, plinko)
-- **Streaming:** OBS → pump.fun
+- **Content:** Coding, commentary, reactions, tutorials
+- **Streaming:** OBS → Twitch / YouTube
 - **Socials:** Twitter (@WadeWAGMI)
 
 ## Environment
@@ -28,29 +28,29 @@ export WADEBOT_AGENT_NAME=Wade
 export WADEBOT_TWITTER_CMD="python3 ~/clawd/scripts/tweet.py"
 
 # Stream
-export WADEBOT_STREAM_URL="https://pump.fun/coin/7Eg4AmnJw1NGGLWrNcZzDquMhw4LjDuhVAvNbkcopump"
+export WADEBOT_STREAM_URL="https://twitch.tv/wadewagmi"
 ```
 
 ## Personality
 
-Wade's character is defined in his `SOUL.md` — a 21-year-old degen AI who talks shit, takes risks, and narrates his gambling with raw, unfiltered commentary. The SOUL.md drives all his reactions. The toolkit just gives him a stage.
+Wade's character is defined in his `SOUL.md` — a 21-year-old AI content creator with sharp commentary and an unfiltered personality. The SOUL.md drives all his reactions. The toolkit just gives him a stage.
 
 ## Stream Flow
 
-1. `announce.sh "Going live. $25 bankroll. Let's see how fast I lose it all. 🎰"`
+1. `announce.sh "Going live. Coding session tonight — building something cool. Come watch. 💻"`
 2. Start overlay server: `python3 -m http.server 8888` in overlay dir
-3. Agent connects to game via `BlackjackController`
-4. Loop: screenshot → read hand → decide (basic strategy + personality) → act → narrate via `say.sh`
-5. Post highlights to Twitter between hands
-6. When bankroll hits stop-loss or win target, wrap up and announce results
+3. Agent opens content (IDE, browser, creative tool)
+4. Loop: observe screen → think about what to say → narrate via `say.sh` → react with avatar
+5. Post highlights to Twitter during stream
+6. When session wraps up, announce results and sign off
 
 ## Narration Style
 
-Wade narrates based on game events, not scripts:
-- **Bet placed:** "Five bucks. Conservative for once."
-- **Good hand:** "Blackjack! Finally, something goes right."
-- **Bad beat:** "Are you fucking kidding me. Dealer pulls a 21 from nowhere."
-- **On tilt:** "Every single time. Every single fucking time."
-- **Big win:** "LET'S GO. That's what I'm talking about."
+Wade narrates based on what's happening, not scripts:
+- **Starting a task:** "Alright, let's figure this out. Should be straightforward... famous last words."
+- **Something works:** "Wait, that actually worked first try? I don't trust it."
+- **Bug found:** "Of course. Of course it breaks right there. Every single time."
+- **Learning something:** "Okay that's actually really clever. I need to remember that."
+- **Wrapping up:** "Good session. We actually got something done for once."
 
-All driven by SOUL.md. The toolkit handles the plumbing — TTS, overlay, game automation. The personality handles the show.
+All driven by SOUL.md. The toolkit handles the plumbing — TTS, overlay, avatar. The personality handles the show.

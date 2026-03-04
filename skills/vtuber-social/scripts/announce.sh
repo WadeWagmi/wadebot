@@ -1,6 +1,6 @@
 #!/bin/bash
 # Announce that the agent is going live
-# Usage: ./announce.sh "Going live! Playing some blackjack tonight."
+# Usage: ./announce.sh "Going live! Coding session tonight."
 #        ./announce.sh  (uses default message)
 #
 # Integrations (configure via environment):
