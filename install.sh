@@ -41,6 +41,12 @@ fi
 # --- Helper: check command exists ---
 has() { command -v "$1" &>/dev/null; }
 
+# --- Helper: check if piper is available (CLI or python module) ---
+has_piper() { has piper || python3 -m piper --help &>/dev/null 2>&1; }
+
+# --- Helper: run piper (CLI first, then python module fallback) ---
+run_piper() { if has piper; then piper "$@"; else python3 -m piper "$@"; fi; }
+
 # --- Install Homebrew if needed (macOS) ---
 ensure_brew() {
     if ! has brew; then
@@ -118,32 +124,28 @@ esac
 
 # --- 1. Install Piper TTS ---
 head "Installing Piper TTS"
-if has piper; then
+if has_piper; then
     ok "Piper already installed"
 else
     if [[ "$OS" == "macos" ]]; then
-        ensure_brew
-        info "Installing piper via Homebrew..."
-        brew install piper 2>/dev/null || {
-            # Fallback: try pip
-            info "Brew failed, trying pip..."
-            pip3 install piper-tts 2>/dev/null || {
-                fail "Could not install Piper. Try: brew install piper OR pip3 install piper-tts"
+        info "Installing piper via pip..."
+        pip3 install piper-tts 2>/dev/null || {
+            pip3 install --user piper-tts 2>/dev/null || {
+                fail "Could not install Piper. Try: pip3 install piper-tts"
             }
         }
     else
         info "Installing piper via pip..."
         pip3 install piper-tts 2>/dev/null || {
-            # Try with --user
             pip3 install --user piper-tts 2>/dev/null || {
                 fail "Could not install Piper. Try: pip3 install piper-tts"
             }
         }
     fi
-    if has piper; then
+    if has_piper; then
         ok "Piper installed"
     else
-        warn "Piper may not be on PATH. Check your shell config."
+        fail "Piper install failed. Try: pip3 install piper-tts"
     fi
 fi
 
@@ -254,8 +256,9 @@ if lsof -i ":$OVERLAY_PORT" &>/dev/null; then
 else
     info "Starting overlay server on port $OVERLAY_PORT..."
     cd "$WADEBOT_DIR/skills/vtuber-core/overlay"
-    nohup python3 -m http.server "$OVERLAY_PORT" &>/dev/null &
-    sleep 1
+    nohup python3 -m http.server "$OVERLAY_PORT" > /dev/null 2>&1 &
+    disown 2>/dev/null || true
+    sleep 2
     if lsof -i ":$OVERLAY_PORT" &>/dev/null; then
         ok "Overlay server running at http://localhost:$OVERLAY_PORT"
     else
@@ -266,9 +269,9 @@ fi
 
 # --- 8. Test TTS ---
 head "Testing TTS"
-if has piper && [[ -n "$ONNX" && -f "$ONNX" ]]; then
+if has_piper && [[ -n "$ONNX" && -f "$ONNX" ]]; then
     info "Speaking test phrase..."
-    echo "wadebot is ready" | piper --model "$ONNX" --speaker "${PIPER_SPEAKER:-34}" --output_raw 2>/dev/null | \
+    echo "wadebot is ready" | run_piper --model "$ONNX" --speaker "${PIPER_SPEAKER:-34}" --output-raw 2>/dev/null | \
         (has play && play -r 22050 -e signed -b 16 -c 1 -t raw - 2>/dev/null || \
          has aplay && aplay -r 22050 -f S16_LE -c 1 2>/dev/null || \
          cat > /dev/null) && ok "TTS works!" || warn "TTS test failed (audio playback issue — TTS itself may be fine)"

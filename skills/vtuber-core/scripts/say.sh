@@ -34,8 +34,8 @@ EOF
 if [ -n "${WADEBOT_TTS_CMD:-}" ]; then
   # Custom TTS command — pipe text to it
   echo "$TEXT" | eval "$WADEBOT_TTS_CMD"
-elif command -v piper &>/dev/null; then
-  # Default: Piper local TTS
+elif command -v piper &>/dev/null || python3 -m piper --help &>/dev/null 2>&1; then
+  # Default: Piper local TTS (CLI or python module)
   VOICE="${WADEBOT_PIPER_MODEL:-}"
   SPEAKER="${WADEBOT_PIPER_SPEAKER:-0}"
   if [ -z "$VOICE" ]; then
@@ -43,7 +43,11 @@ elif command -v piper &>/dev/null; then
     echo "Example: export WADEBOT_PIPER_MODEL=~/piper-voices/en_US-libritts-high.onnx" >&2
     exit 1
   fi
-  echo "$TEXT" | piper -m "$VOICE" -s "$SPEAKER" --output-raw --sentence-silence 0.1 2>/dev/null \
+  PIPER_CMD="piper"
+  if ! command -v piper &>/dev/null; then
+    PIPER_CMD="python3 -m piper"
+  fi
+  echo "$TEXT" | $PIPER_CMD -m "$VOICE" -s "$SPEAKER" --output-raw --sentence-silence 0.1 2>/dev/null \
     | play -t raw -r 22050 -e signed -b 16 -c 1 - 2>/dev/null
 elif command -v say &>/dev/null; then
   # Fallback: macOS built-in TTS
