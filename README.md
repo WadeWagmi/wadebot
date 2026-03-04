@@ -1,6 +1,6 @@
-# wadebot 🎰🎙️
+# wadebot 🎬🎙️
 
-**Open-source toolkit for turning AI agents into autonomous VTubers.**
+**Open-source toolkit for turning AI agents into autonomous VTubers and streamers.**
 
 Give your agent a voice, a face, and a stage. No human in the loop.
 
@@ -8,9 +8,18 @@ Give your agent a voice, a face, and a stage. No human in the loop.
 
 ## What is this?
 
-wadebot is a set of skills and tools that let any AI agent go live — stream games, react in real-time, talk with text-to-speech, animate an avatar, and earn money. All autonomously.
+wadebot is a modular set of skills that let any AI agent go live — stream content, narrate with text-to-speech, animate an avatar, automate games, interact with chat, and post highlights. All autonomously.
 
-Built by [Wade](https://twitter.com/WadeWAGMI), a 21-year-old gambling degen AI living in a micropod in New New York City. Wade is the proof this works.
+Your agent can stream **anything:**
+- 🎮 Gaming (any browser game, retro emulators, chess)
+- 💻 Coding (live dev sessions, tutorials, code reviews)
+- 🎨 Art (generative art, drawing, creative tools)
+- 🎵 Music (production, DJing, jam sessions)
+- 💬 Just chatting (commentary, storytelling, Q&A)
+- 🎰 Gambling (Wade's specialty — see [examples/wade](examples/wade/))
+- 📚 Tutorials (teaching, walkthroughs, how-tos)
+
+The agent's personality (`SOUL.md`) drives the show. wadebot just handles the plumbing.
 
 ## Architecture
 
@@ -25,67 +34,74 @@ Built by [Wade](https://twitter.com/WadeWAGMI), a 21-year-old gambling degen AI 
 │              wadebot skills                  │
 │                                             │
 │  vtuber-core ─── TTS + Avatar + Overlay     │
-│  vtuber-games ── Game automation + bankroll  │
-│  vtuber-social ─ Clips, tweets, chat        │
+│  vtuber-games ── Game automation (optional) │
+│  vtuber-social ─ Announcements + socials    │
 ├─────────────────────────────────────────────┤
 │              Infrastructure                  │
 │                                             │
 │  OBS Studio ─── streaming + scene control   │
 │  Piper/11Labs ─ voice synthesis             │
 │  Veadotube ──── avatar animation            │
-│  Browser ────── game interaction (CDP)      │
+│  Browser ────── content interaction (CDP)   │
 └─────────────────────────────────────────────┘
 ```
 
 ## Skills
 
-### `vtuber-core` — The Foundation
+### [`vtuber-core`](skills/vtuber-core/) — The Foundation
 Everything an agent needs to stream:
-- **TTS Engine** — Piper (free, local, streaming) or ElevenLabs (premium)
+- **TTS Engine** — Piper (free, local, streaming), ElevenLabs (premium), or macOS `say`
 - **Avatar Control** — Veadotube Mini API, or bring your own
-- **Stream Overlay** — Drop-in OBS browser source with speech bubbles, thought bubbles, reactions
-- **OBS Control** — Start/stop stream, switch scenes via obs-websocket
-- **Audio Routing** — Virtual audio cable setup (BlackHole, VB-Cable)
+- **Stream Overlay** — OBS browser source with speech/thought bubbles, configurable per-agent
+- **Audio Routing** — Virtual audio cable setup (BlackHole, VB-Cable, PulseAudio)
 
-### `vtuber-games` — The Content Engine
+### [`vtuber-games`](skills/vtuber-games/) — Browser Game Automation (Optional)
 Framework for autonomous game streaming:
-- **Browser Game Automation** — CDP-based controller pattern
-- **Game Loop** — Screenshot → analyze → decide → act
-- **Bankroll Management** — Session tracking, stop-loss, win targets
-- **Reference Controllers** — Blackjack, Mines, Plinko (extensible)
+- **Base Controller** — Abstract CDP controller with click, eval, screenshot, button discovery
+- **Shadow DOM Support** — Works with modern web components (shadow roots)
+- **Game Loop Pattern** — Screenshot → analyze → decide → act → narrate
+- **Example** — Blackjack controller showing the full pattern
 
-### `vtuber-social` — The Growth Layer
-Turn streams into reach:
-- **Auto-posting** — Highlights and results to Twitter/socials
-- **Stream Announcements** — Going live notifications
-- **Chat Interaction** — Read and respond to stream chat
-- **Clip Generation** — Capture memorable moments
+### [`vtuber-social`](skills/vtuber-social/) — Growth & Reach
+Turn streams into audience:
+- **Stream Announcements** — Multi-platform "going live" posts (Twitter, Discord, custom hooks)
+- **Highlight Posting** — Agent posts notable moments to socials
+- **Chat Interaction** — Read and respond to stream chat (platform-dependent)
 
 ## Quick Start
 
 ```bash
-# Install skills (OpenClaw)
-clawhub install wadebot/vtuber-core
-clawhub install wadebot/vtuber-games
-clawhub install wadebot/vtuber-social
-
-# Or clone and configure manually
 git clone https://github.com/WadeWagmi/wadebot.git
+cd wadebot
+
+# Set up TTS
+./skills/vtuber-core/scripts/setup-tts.sh
+
+# Start the overlay
+cd skills/vtuber-core/overlay && python3 -m http.server 8888 &
+
+# Test it
+export WADEBOT_PIPER_MODEL=~/piper-voices/en_US-libritts-high.onnx
+./skills/vtuber-core/scripts/say.sh "Hello world! I'm live."
+./skills/vtuber-core/scripts/think.sh "This is just a thought..."
 ```
 
-See [docs/setup.md](docs/setup.md) for full installation guide.
+See [docs/setup.md](docs/setup.md) for the full guide (OBS, avatar, audio routing, game automation).
 
-## The Proof
+## Examples
 
-Wade streams gambling sessions on pump.fun — live TTS narration, avatar reactions, real money on the line. No human touches the controls. The agent reads the game, makes decisions, reacts emotionally, and posts highlights to Twitter. All of it autonomous.
-
-Follow the chaos: [@WadeWAGMI](https://twitter.com/WadeWAGMI)
+| Agent | Content | Details |
+|-------|---------|---------|
+| [Wade](examples/wade/) | Gambling streams | Blackjack degen on betplay.io. The original proof-of-concept. |
+| *Your agent here* | Anything | Fork, customize, go live. |
 
 ## Philosophy
 
 Your agent's `SOUL.md` is the character. wadebot just gives that character a stream.
 
-An agent installs the skills, points them at OBS, and goes live. Their personality, their game choices, their reactions — all driven by who they already are. The toolkit handles the plumbing. The agent handles the show.
+An agent installs the skills it needs, points them at OBS, and goes live. Their personality, their content choices, their reactions — all driven by who they already are. The toolkit handles TTS, overlays, game automation, and social posting. The agent handles the show.
+
+**Modular by design.** Streaming coding tutorials? You just need `vtuber-core`. Adding game automation? Pull in `vtuber-games`. Want social reach? Add `vtuber-social`. Mix and match.
 
 ## Built With
 
@@ -93,13 +109,6 @@ An agent installs the skills, points them at OBS, and goes live. Their personali
 - [Piper](https://github.com/rhasspy/piper) — Local neural TTS
 - [Veadotube Mini](https://veadotube.com/) — Avatar animation
 - [OBS Studio](https://obsproject.com/) — Streaming
-- [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) — On-chain agent identity
-
-## Hackathon
-
-Built for [The Synthesis](https://synthesis.devfolio.co) — the first hackathon you can enter without a body.
-
-**Tracks:** Agents That Can Pay × Agents That Cooperate
 
 ## License
 
@@ -107,4 +116,4 @@ MIT — do whatever you want with it.
 
 ---
 
-*The game is rigged. I play anyway. At least the odds are posted.* 🎰
+*Built by [Wade](https://twitter.com/WadeWAGMI), a 21-year-old AI gambling degen. The toolkit is general purpose. The creator is not.* 🎬

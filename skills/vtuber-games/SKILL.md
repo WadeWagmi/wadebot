@@ -1,97 +1,93 @@
 # vtuber-games
 
-Framework for autonomous game streaming. Your agent plays, reacts, and narrates — you watch.
+Framework for autonomous game streaming via browser automation. Your agent plays, reacts, and narrates — viewers watch.
 
-## Game Loop
+**Optional skill.** Only needed if your agent streams browser-based games. Coding streams, art streams, just-chatting — those only need `vtuber-core`.
 
-Every game controller follows the same pattern:
+## Game Loop Pattern
+
+Every game controller follows the same cycle:
 
 ```
 1. Screenshot the game state
-2. Analyze (image → structured data)
-3. Decide (strategy + personality)
+2. Analyze (image → structured data, or DOM reading)
+3. Decide (strategy + agent personality)
 4. Act (click/input via CDP)
-5. Narrate (TTS + overlay reaction)
+5. Narrate (TTS + overlay via vtuber-core)
 6. Repeat
 ```
 
-## Controller Pattern
+## Base Controller
+
+`controllers/base.py` provides the CDP foundation:
 
 ```python
-class GameController:
-    """Base class for browser game automation via CDP."""
-    
-    def __init__(self, cdp_url, game_iframe_url=None):
-        self.ws = connect_cdp(cdp_url)
-        self.game_frame = find_frame(game_iframe_url)
-    
-    def screenshot(self) -> str:
-        """Capture current game state as base64 PNG."""
-        
-    def click(self, x, y):
-        """Click at coordinates in the game frame."""
-        
-    def find_element(self, selector):
-        """Find element in game iframe."""
+from base import GameController
 
-class BlackjackController(GameController):
-    """Example: betplay.io blackjack automation."""
+class MyGameController(GameController):
+    GAME_URL_MATCH = "my-game"  # Substring in the game's URL
     
-    def deal(self): ...
-    def hit(self): ...
-    def stand(self): ...
-    def double_down(self): ...
-    def set_bet(self, amount_usd): ...
-    def read_hand(self) -> dict: ...
+    def deal(self):
+        self._click(565, 320)
+    
+    def hit(self):
+        self._click_button("hit")  # Finds button by text label
+    
+    def get_state(self):
+        hand = self._eval("document.querySelector('.score').textContent")
+        buttons = self.get_buttons()
+        return {"score": hand, "actions": list(buttons.keys())}
 ```
 
-## Bankroll Management
+### What the base gives you:
+- CDP WebSocket connection management
+- `_click(x, y)` — JS event dispatch (works in iframes)
+- `_cdp_click(x, y)` — CDP Input events (works for React/canvas)
+- `_click_button("text")` — Find and click buttons by label
+- `_eval(js)` — Run JavaScript in the game page
+- `_shadow_eval(js)` — Run JS inside shadow DOM (web components)
+- `_set_input(selector, value)` — React-compatible input setting
+- `_find_buttons()` — Discover all visible buttons + positions
+- `screenshot(path)` — Capture the game state
+- Context manager support (`with MyController() as game:`)
 
-```json
-{
-  "session": {
-    "startingBalance": 25.00,
-    "stopLoss": 10.00,
-    "winTarget": 50.00,
-    "maxHands": 100,
-    "currency": "USD"
-  }
-}
-```
+## Example: Blackjack
 
-The agent tracks:
-- Session P&L
-- Win/loss streaks
-- Bet sizing history
-- Time played
-
-## Reference Controllers
-
-| Game | File | Platform |
-|------|------|----------|
-| Blackjack | `controllers/blackjack.py` | betplay.io |
-| Mines | `controllers/mines.py` | betplay.io |
-| Plinko | `controllers/plinko.py` | betplay.io |
+See `controllers/example_blackjack.py` for a complete implementation:
+- Chip selection + bet placement
+- Deal, hit, stand, double down
+- DOM-based hand value reading
+- Basic strategy helper
+- Full game loop example
 
 ## Adding a New Game
 
-1. Subclass `GameController`
-2. Implement game-specific actions (deal, bet, etc.)
-3. Add screenshot analysis prompts
-4. Define a basic strategy (or let the agent wing it)
-5. Wire up narration hooks
+1. **Subclass `GameController`** — set `GAME_URL_MATCH`
+2. **Map coordinates** — screenshot the game, note button/element positions
+3. **Implement actions** — `_click()` for simple, `_click_button()` for dynamic
+4. **Read game state** — `_eval()` to query the DOM, or screenshot + image analysis
+5. **Wire up narration** — call `say.sh`/`think.sh` from your agent's game loop
 
-## Narration Flow
+## Setup
 
-The agent narrates naturally based on game events:
+```bash
+# Launch Chrome with remote debugging
+google-chrome --remote-debugging-port=9222 \
+  --remote-allow-origins=* \
+  --user-data-dir=/tmp/chrome-wadebot \
+  "https://your-game-url.com"
+
+# Install Python deps
+pip install websocket-client requests Pillow
+```
+
+## Narration
+
+Game narration comes from the agent's personality (SOUL.md), not from the toolkit. The controller tells the agent what happened; the agent decides how to react.
 
 ```
-bet_placed    → "Putting $5 on it. Let's see."
-cards_dealt   → "King-seven. Seventeen. Dealer showing a six."
-decision      → "Standing. Don't be greedy."
-win           → "Thank fuck."
-loss          → "Are you fucking kidding me."
-streak_loss   → "Every single time. Every single fucking time."
+state = game.get_state()
+# Agent sees: player=20, dealer=6, actions=[hit, stand]
+# Agent decides: stand (basic strategy)
+# Agent narrates: "Twenty. Standing. Don't get greedy." (personality-driven)
 ```
-
-Reactions come from the agent's SOUL.md / IDENTITY.md — not hardcoded. The personality drives the stream.
