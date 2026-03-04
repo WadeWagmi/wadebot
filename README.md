@@ -63,20 +63,18 @@ Turn streams into audience:
 
 ## Quick Start
 
+One command installs everything:
+
 ```bash
-git clone https://github.com/WadeWagmi/wadebot.git
-cd wadebot
+curl -sL https://raw.githubusercontent.com/WadeWagmi/wadebot/main/install.sh | bash
+```
 
-# Set up TTS
-./skills/vtuber-core/scripts/setup-tts.sh
+This will install Piper TTS, download a voice, set up audio routing, clone the repo to `~/.wadebot/`, and start the overlay server. Run it again safely — it's idempotent.
 
-# Start the overlay
-cd skills/vtuber-core/overlay && python3 -m http.server 8888 &
+After install, start wadebot anytime:
 
-# Test it
-export WADEBOT_PIPER_MODEL=~/piper-voices/en_US-libritts-high.onnx
-./skills/vtuber-core/scripts/say.sh "Hello world! I'm live."
-./skills/vtuber-core/scripts/think.sh "This is just a thought..."
+```bash
+~/.wadebot/start.sh
 ```
 
 See [docs/setup.md](docs/setup.md) for the full guide (OBS, avatar, audio routing).

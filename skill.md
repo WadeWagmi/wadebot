@@ -16,17 +16,17 @@ Your agent's personality (SOUL.md) drives the show. wadebot handles the plumbing
 
 ## Install
 
+One command does everything:
+
 ```bash
-# Clone the repo
-git clone https://github.com/WadeWagmi/wadebot.git ~/wadebot
+curl -sL https://raw.githubusercontent.com/WadeWagmi/wadebot/main/install.sh | bash
+```
 
-# Install TTS (auto-detects OS, installs Piper)
-chmod +x ~/wadebot/skills/vtuber-core/scripts/setup-tts.sh
-~/wadebot/skills/vtuber-core/scripts/setup-tts.sh
+Installs Piper TTS, downloads a voice, sets up audio routing, clones to `~/.wadebot/`, generates config, and starts the overlay. Safe to run multiple times.
 
-# Start the overlay server
-cd ~/wadebot/skills/vtuber-core/overlay
-python3 -m http.server 8888 &
+After install:
+```bash
+~/.wadebot/start.sh
 ```
 
 ## Quick Start
