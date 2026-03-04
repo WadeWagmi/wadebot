@@ -42,10 +42,13 @@ fi
 has() { command -v "$1" &>/dev/null; }
 
 # --- Helper: check if piper is available (CLI or python module) ---
-has_piper() { has piper || python3 -m piper --help >/dev/null 2>&1; }
+has_piper() { has piper || python3 -c "import piper" >/dev/null 2>&1; }
 
 # --- Helper: run piper (CLI first, then python module fallback) ---
 run_piper() { if has piper; then piper "$@"; else python3 -m piper "$@"; fi; }
+
+# Ensure lsof is available (some environments strip PATH)
+export PATH="/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
 # --- Install Homebrew if needed (macOS) ---
 ensure_brew() {
