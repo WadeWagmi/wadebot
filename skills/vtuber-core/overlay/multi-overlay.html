@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>wadebot Multi-Agent Stream Overlay</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      background: #ff00ff; /* Chroma key */
+      font-family: 'JetBrains Mono', monospace;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      min-height: 100vh;
+    }
+    
+    .log-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 80vh;
+      overflow: hidden;
+    }
+    
+    .entry {
+      background: linear-gradient(135deg, rgba(15, 15, 25, 0.95) 0%, rgba(25, 25, 40, 0.95) 100%);
+      border-radius: 12px;
+      padding: 16px 24px;
+      max-width: 600px;
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .avatar { font-size: 20px; }
+    
+    .name {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .entry-text {
+      color: #e2e8f0;
+      font-size: 18px;
+      line-height: 1.4;
+      font-weight: 400;
+    }
+    
+    /* Agent-specific colors — auto-assigned or set via config */
+    .agent-0 { border: 2px solid #22c55e; box-shadow: 0 0 20px rgba(34, 197, 94, 0.3); }
+    .agent-0 .name { color: #86efac; }
+    .agent-1 { border: 2px solid #6366f1; box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+    .agent-1 .name { color: #a5b4fc; }
+    .agent-2 { border: 2px solid #f59e0b; box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
+    .agent-2 .name { color: #fcd34d; }
+    .agent-3 { border: 2px solid #ec4899; box-shadow: 0 0 20px rgba(236, 72, 153, 0.3); }
+    .agent-3 .name { color: #f9a8d4; }
+    .agent-4 { border: 2px solid #06b6d4; box-shadow: 0 0 20px rgba(6, 182, 212, 0.3); }
+    .agent-4 .name { color: #67e8f9; }
+    
+    .thought { border-style: dashed !important; opacity: 0.85; }
+    .thought .name::after { content: ' 💭'; }
+    .speech .name::after { content: ' 🎤'; }
+    
+    /* Old entries dim */
+    .old .entry-text { color: #64748b; }
+    .old { border-color: #334155 !important; box-shadow: none !important; }
+    .old .name { color: #64748b !important; }
+  </style>
+</head>
+<body>
+  <div class="log-container" id="log"></div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const CONFIG = {
+      maxEntries: parseInt(params.get('maxEntries')) || 6,
+      pollMs: parseInt(params.get('pollMs')) || 500,
+    };
+
+    // Track agents for color assignment
+    const agentColors = new Map();
+    let nextColor = 0;
+    let lastTimestamp = 0;
+    let entries = [];
+    
+    function getAgentColorClass(agent) {
+      if (!agentColors.has(agent)) {
+        agentColors.set(agent, nextColor % 5);
+        nextColor++;
+      }
+      return 'agent-' + agentColors.get(agent);
+    }
+    
+    async function checkForNew() {
+      try {
+        const response = await fetch('messages.json?' + Date.now());
+        const data = await response.json();
+        
+        if (!data.messages || !Array.isArray(data.messages)) return;
+        
+        // Process any new messages
+        for (const msg of data.messages) {
+          if (msg.timestamp > lastTimestamp && msg.text && msg.text.trim()) {
+            lastTimestamp = msg.timestamp;
+            addEntry(msg.text, msg.type || 'speech', msg.agent || 'Agent');
+          }
+        }
+      } catch (e) {
+        // Also check legacy single-agent thought.json
+        try {
+          const response = await fetch('thought.json?' + Date.now());
+          const data = await response.json();
+          if (data.timestamp > lastTimestamp && data.text && data.text.trim()) {
+            lastTimestamp = data.timestamp;
+            addEntry(data.text, data.type || 'thought', data.agent || params.get('name') || 'Agent');
+          }
+        } catch (e2) { /* not ready */ }
+      }
+    }
+    
+    function addEntry(text, type, agent) {
+      const log = document.getElementById('log');
+      const colorClass = getAgentColorClass(agent);
+      
+      // Dim old entries
+      document.querySelectorAll('.entry').forEach(el => el.classList.add('old'));
+      
+      const entry = document.createElement('div');
+      entry.className = `entry ${type} ${colorClass}`;
+      entry.innerHTML = `
+        <div class="header">
+          <span class="name">${agent}</span>
+        </div>
+        <div class="entry-text">${text}</div>
+      `;
+      
+      log.appendChild(entry);
+      entries.push(entry);
+      
+      if (entries.length > CONFIG.maxEntries) {
+        entries.shift().remove();
+      }
+    }
+    
+    setInterval(checkForNew, CONFIG.pollMs);
+  </script>
+</body>
+</html>
