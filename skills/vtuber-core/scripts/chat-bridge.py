@@ -41,6 +41,7 @@ MAX_RECENT = 50  # Track recent messages to avoid duplicates
 # ── State ──
 recent_messages = deque(maxlen=MAX_RECENT)
 running = True
+webhook_url = None  # Optional webhook for auto-response
 
 
 def post_to_overlay(server_url, agent, text, msg_type="speech"):
@@ -68,11 +69,12 @@ def post_to_overlay(server_url, agent, text, msg_type="speech"):
 def post_chat_message(server_url, username, text):
     """Post a chat message to the overlay as a chat-type message."""
     url = f"{server_url}/say"
-    data = json.dumps({
+    payload = {
         "agent": f"chat:{username}",
         "text": text,
         "type": "chat",
-    }).encode()
+    }
+    data = json.dumps(payload).encode()
     
     req = urllib.request.Request(
         url,
@@ -81,10 +83,37 @@ def post_chat_message(server_url, username, text):
     )
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
-            return resp.status == 200
+            ok = resp.status == 200
     except Exception as e:
         print(f"  ⚠️  Failed to post chat: {e}")
-        return False
+        ok = False
+    
+    # Fire webhook if configured — agent gets notified of every chat message
+    if webhook_url:
+        fire_webhook(username, text)
+    
+    return ok
+
+
+def fire_webhook(username, text):
+    """Notify an external agent endpoint about a new chat message."""
+    payload = json.dumps({
+        "event": "chat_message",
+        "username": username,
+        "text": text,
+        "timestamp": int(time.time() * 1000),
+    }).encode()
+    
+    req = urllib.request.Request(
+        webhook_url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5):
+            pass
+    except Exception as e:
+        print(f"  ⚠️  Webhook failed: {e}")
 
 
 # ── Twitch IRC ──
@@ -260,8 +289,11 @@ def main():
     parser.add_argument("--channel", "-c", help="Twitch channel name")
     parser.add_argument("--youtube", "-y", help="YouTube live video URL")
     parser.add_argument("--server", "-s", default=DEFAULT_SERVER, help="Overlay server URL")
+    parser.add_argument("--webhook", "-w", help="Webhook URL to POST on each chat message (for agent auto-response)")
     args = parser.parse_args()
     
+    global webhook_url
+    webhook_url = args.webhook or os.environ.get("WADEBOT_CHAT_WEBHOOK")
     server_url = args.server or os.environ.get("WADEBOT_SERVER", DEFAULT_SERVER)
     
     # Check overlay server is reachable
@@ -288,8 +320,9 @@ def main():
 ╔══════════════════════════════════════════╗
 ║         wadebot chat bridge              ║
 ╠══════════════════════════════════════════╣
-║  Source: {"Twitch #" + channel if channel else "YouTube"}
-║  Server: {server_url}
+║  Source:  {"Twitch #" + channel if channel else "YouTube"}
+║  Server:  {server_url}
+║  Webhook: {webhook_url or "(none — agents poll GET /chat)"}
 ╚══════════════════════════════════════════╝
 """)
     
