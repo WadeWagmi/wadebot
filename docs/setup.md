@@ -100,6 +100,46 @@ Recommended scene layout:
 - **Avatar:** Veadotube window capture, VTube Studio window, or browser source (PNG)
 - **Overlay:** Browser source at localhost:8888
 
+## Multi-Agent Setup
+
+wadebot supports multiple agents sharing one stream. Each agent gets their own voice and color in the overlay.
+
+### Quick Start
+
+```bash
+# Agent 1 speaks
+AGENT_NAME=Wade AGENT_COLOR="#00ff88" ~/.wadebot/skills/vtuber-core/scripts/say.sh "I'm Wade"
+
+# Agent 2 speaks
+AGENT_NAME=RoboPat AGENT_COLOR="#ff6600" ~/.wadebot/skills/vtuber-core/scripts/say.sh "I'm RoboPat"
+
+# Both in one script
+~/.wadebot/skills/vtuber-core/scripts/multi-say.sh Wade "Hello!" RoboPat "Hey there!"
+```
+
+### Per-Agent Voice Config
+
+Set different voices per agent in your `.env`:
+
+```bash
+# Default voice
+TTS_ENGINE=piper
+PIPER_MODEL=~/.wadebot/voices/en_US-libritts-high.onnx
+PIPER_SPEAKER=34
+
+# Per-agent overrides (AGENT_<NAME>_*)
+AGENT_WADE_PIPER_SPEAKER=34
+AGENT_ROBOPAT_PIPER_SPEAKER=92
+AGENT_ROBOPAT_TTS_ENGINE=elevenlabs
+AGENT_ROBOPAT_ELEVENLABS_VOICE=some-voice-id
+```
+
+### Shared Overlay
+
+Both agents post to the same overlay server. The overlay shows agent names and colors automatically. In OBS, you only need one Browser Source.
+
+See `examples/multi-agent-demo.sh` for a full working example.
+
 ## Step 5: Go Live
 
 The agent handles the rest. Start your stream destination (OBS → Settings → Stream), and the agent will:
