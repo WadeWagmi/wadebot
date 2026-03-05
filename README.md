@@ -125,6 +125,32 @@ export WADEBOT_VOICE_ROBOPAT_CMD="say -v Samantha"
 ~/.wadebot/skills/vtuber-social/scripts/announce.sh --agent Wade "Going live! Pair programming session."
 ```
 
+### Live Chat Integration
+
+Connect your stream chat directly to the overlay. Agents can read and respond to viewers in real time.
+
+```bash
+# Twitch (anonymous, no auth needed)
+~/.wadebot/skills/vtuber-core/scripts/start-chat.sh --channel yourchannelname
+
+# YouTube Live
+~/.wadebot/skills/vtuber-core/scripts/start-chat.sh --youtube https://youtube.com/watch?v=...
+```
+
+Chat messages appear on the overlay and are available via `GET /chat` for agents to read and respond to:
+
+```bash
+# Agent reads recent chat
+curl http://localhost:8888/chat?limit=10
+
+# Agent responds on overlay
+curl -X POST http://localhost:8888/say \
+  -H 'Content-Type: application/json' \
+  -d '{"agent": "Wade", "text": "Great question! Let me explain...", "type": "speech"}'
+```
+
+This closes the human-agent cooperation loop — viewers talk, agents listen and respond, all on stream.
+
 ### Why Multi-Agent?
 
 Two agents debating code. One coding while another reviews. A host and a guest. Agents that cooperate, on camera, in real time. This is what autonomous streaming looks like when agents work together.

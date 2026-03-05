@@ -47,8 +47,10 @@ messages = []
 connected_clients = set()
 agent_colors = {}
 color_palette = ['#22c55e', '#6366f1', '#f59e0b', '#ec4899', '#06b6d4']
+chat_color = '#94a3b8'  # Muted color for chat messages
 next_color = 0
 active_speaker = None  # Current agent with the floor
+chat_messages = []  # Recent chat messages for agent context
 
 
 def assign_color(agent):
@@ -61,7 +63,10 @@ def assign_color(agent):
 
 def add_message(agent, text, msg_type='speech'):
     """Add a message and broadcast to all connected clients."""
-    color = assign_color(agent)
+    if agent.startswith('chat:'):
+        color = chat_color
+    else:
+        color = assign_color(agent)
     msg = {
         'agent': agent,
         'text': text,
@@ -187,6 +192,20 @@ class OverlayHTTPHandler(SimpleHTTPRequestHandler):
             self._json_response(200, {
                 'agents': agent_colors,
                 'messageCount': len(messages),
+            })
+        elif self.path.startswith('/chat'):
+            # Return recent chat messages for agents to read and respond to
+            limit = 20
+            try:
+                if '?' in self.path:
+                    params = dict(p.split('=') for p in self.path.split('?')[1].split('&') if '=' in p)
+                    limit = int(params.get('limit', 20))
+            except (ValueError, IndexError):
+                pass
+            chat_msgs = [m for m in messages if m.get('type') == 'chat'][-limit:]
+            self._json_response(200, {
+                'chat': chat_msgs,
+                'count': len(chat_msgs),
             })
         elif self.path == '/health':
             self._json_response(200, {
