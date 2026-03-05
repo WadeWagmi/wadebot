@@ -24,6 +24,7 @@ import json
 import time
 import os
 import sys
+import sqlite3
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 import threading
@@ -40,6 +41,7 @@ except ImportError:
 PORT = int(os.environ.get('PORT', os.environ.get('WADEBOT_PORT', 8888)))
 HOST = os.environ.get('WADEBOT_HOST', '0.0.0.0')
 OVERLAY_DIR = Path(__file__).parent.parent / 'overlay'
+DATA_DIR = Path(os.environ.get('WADEBOT_DATA', Path(__file__).parent.parent.parent / 'data'))
 MAX_MESSAGES = 50
 
 # ── State ──
@@ -51,6 +53,102 @@ chat_color = '#94a3b8'  # Muted color for chat messages
 next_color = 0
 active_speaker = None  # Current agent with the floor
 chat_messages = []  # Recent chat messages for agent context
+
+
+# ── Database ──
+db_conn = None
+db_lock = threading.Lock()
+
+
+def init_db():
+    """Initialize SQLite database for persistent message history."""
+    global db_conn
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    db_path = DATA_DIR / 'messages.db'
+    db_conn = sqlite3.connect(str(db_path), check_same_thread=False)
+    db_conn.execute('''
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent TEXT NOT NULL,
+            text TEXT NOT NULL,
+            type TEXT DEFAULT 'speech',
+            color TEXT,
+            timestamp INTEGER NOT NULL,
+            session_id TEXT
+        )
+    ''')
+    db_conn.execute('''
+        CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)
+    ''')
+    db_conn.execute('''
+        CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(type)
+    ''')
+    # Session tracking
+    db_conn.execute('''
+        CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            started_at INTEGER NOT NULL,
+            ended_at INTEGER
+        )
+    ''')
+    db_conn.commit()
+    print(f"  💾 Database: {db_path}")
+
+
+def db_save_message(msg, session_id=None):
+    """Persist a message to SQLite."""
+    if not db_conn:
+        return
+    with db_lock:
+        try:
+            db_conn.execute(
+                'INSERT INTO messages (agent, text, type, color, timestamp, session_id) VALUES (?, ?, ?, ?, ?, ?)',
+                (msg['agent'], msg['text'], msg['type'], msg.get('color'), msg['timestamp'], session_id)
+            )
+            db_conn.commit()
+        except Exception as e:
+            print(f"  ⚠️  DB write failed: {e}")
+
+
+def db_get_messages(limit=50, msg_type=None, session_id=None):
+    """Retrieve messages from the database."""
+    if not db_conn:
+        return []
+    with db_lock:
+        query = 'SELECT agent, text, type, color, timestamp, session_id FROM messages WHERE 1=1'
+        params = []
+        if msg_type:
+            query += ' AND type = ?'
+            params.append(msg_type)
+        if session_id:
+            query += ' AND session_id = ?'
+            params.append(session_id)
+        query += ' ORDER BY timestamp DESC LIMIT ?'
+        params.append(limit)
+        rows = db_conn.execute(query, params).fetchall()
+    return [
+        {'agent': r[0], 'text': r[1], 'type': r[2], 'color': r[3], 'timestamp': r[4], 'session_id': r[5]}
+        for r in reversed(rows)
+    ]
+
+
+# ── Session tracking ──
+current_session_id = None
+
+
+def start_session():
+    """Start a new streaming session."""
+    global current_session_id
+    current_session_id = f"session-{int(time.time())}"
+    if db_conn:
+        with db_lock:
+            db_conn.execute(
+                'INSERT INTO sessions (id, started_at) VALUES (?, ?)',
+                (current_session_id, int(time.time() * 1000))
+            )
+            db_conn.commit()
+    print(f"  📋 Session: {current_session_id}")
+    return current_session_id
 
 
 def assign_color(agent):
@@ -77,6 +175,9 @@ def add_message(agent, text, msg_type='speech'):
     messages.append(msg)
     if len(messages) > MAX_MESSAGES:
         messages.pop(0)
+    
+    # Persist to SQLite
+    db_save_message(msg, current_session_id)
     
     # Write to messages.json for polling fallback
     try:
@@ -207,7 +308,40 @@ class OverlayHTTPHandler(SimpleHTTPRequestHandler):
                 'chat': chat_msgs,
                 'count': len(chat_msgs),
             })
+        elif self.path.startswith('/history'):
+            # Persistent history — all messages from DB, filterable
+            limit = 100
+            msg_type = None
+            session_id = None
+            try:
+                if '?' in self.path:
+                    params = dict(p.split('=') for p in self.path.split('?')[1].split('&') if '=' in p)
+                    limit = int(params.get('limit', 100))
+                    msg_type = params.get('type')
+                    session_id = params.get('session')
+            except (ValueError, IndexError):
+                pass
+            history = db_get_messages(limit=limit, msg_type=msg_type, session_id=session_id)
+            self._json_response(200, {
+                'messages': history,
+                'count': len(history),
+                'session': current_session_id,
+            })
+        elif self.path == '/sessions':
+            # List all sessions
+            sessions = []
+            if db_conn:
+                with db_lock:
+                    rows = db_conn.execute(
+                        'SELECT id, started_at, ended_at FROM sessions ORDER BY started_at DESC LIMIT 50'
+                    ).fetchall()
+                sessions = [{'id': r[0], 'started_at': r[1], 'ended_at': r[2]} for r in rows]
+            self._json_response(200, {'sessions': sessions})
         elif self.path == '/health':
+            db_count = 0
+            if db_conn:
+                with db_lock:
+                    db_count = db_conn.execute('SELECT COUNT(*) FROM messages').fetchone()[0]
             self._json_response(200, {
                 'status': 'ok',
                 'websockets': HAS_WEBSOCKETS,
@@ -215,6 +349,9 @@ class OverlayHTTPHandler(SimpleHTTPRequestHandler):
                 'agents': list(agent_colors.keys()),
                 'activeSpeaker': active_speaker,
                 'messages': len(messages),
+                'totalMessages': db_count,
+                'session': current_session_id,
+                'persistence': db_conn is not None,
             })
         elif self.path == '/messages':
             self._json_response(200, {'messages': messages[-20:]})
@@ -305,6 +442,10 @@ def main():
     
     print(f"""╚══════════════════════════════════════════╝
 """)
+    
+    # Initialize database and session
+    init_db()
+    start_session()
     
     # Start HTTP server
     httpd = HTTPServer((HOST, PORT), OverlayHTTPHandler)
