@@ -11,6 +11,24 @@ PIPER_VOICE=""
 PIPER_SPEAKER=""
 SKIP_VOICE=false
 
+# --- Parse CLI flags ---
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --port|-p)    OVERLAY_PORT="$2"; shift 2 ;;
+        --dir|-d)     WADEBOT_DIR="$2"; VOICES_DIR="$WADEBOT_DIR/voices"; shift 2 ;;
+        --default)    NON_INTERACTIVE=true; shift ;;
+        --skip-voice) SKIP_VOICE=true; shift ;;
+        --help|-h)
+            echo "Usage: install.sh [OPTIONS]"
+            echo "  --port, -p PORT    Overlay server port (default: 8888)"
+            echo "  --dir, -d DIR      Install directory (default: ~/.wadebot)"
+            echo "  --default          Non-interactive mode (skip prompts)"
+            echo "  --skip-voice       Skip voice download"
+            exit 0 ;;
+        *) shift ;;
+    esac
+done
+
 # --- Colors ---
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; PURPLE='\033[0;35m'; NC='\033[0m'
 
@@ -70,7 +88,7 @@ ensure_brew() {
 
 # --- Voice Selection ---
 head "Voice Selection"
-if [ -t 0 ]; then
+if [[ "${NON_INTERACTIVE:-}" != "true" ]] && [ -t 0 ]; then
     echo ""
     echo -e "🎙️  Choose a voice:"
     echo ""
