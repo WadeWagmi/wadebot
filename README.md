@@ -79,11 +79,62 @@ After install, start wadebot anytime:
 
 See [docs/setup.md](docs/setup.md) for the full guide (OBS, avatar, audio routing).
 
+## Multi-Agent Streaming
+
+wadebot supports **multiple agents on one stream** — each with their own voice, color, and overlay identity.
+
+### Shared Overlay
+
+Use `multi-overlay.html` instead of `overlay.html` in OBS:
+
+```
+http://localhost:8888/multi-overlay.html?maxEntries=6
+```
+
+Each agent gets auto-assigned a unique color (green, indigo, amber, pink, cyan). Speech shows as solid borders, thoughts as dashed.
+
+### Multi-Agent TTS
+
+```bash
+# Agent-specific speech (both appear on shared overlay)
+~/.wadebot/skills/vtuber-core/scripts/multi-say.sh --agent Wade "I'll handle the frontend"
+~/.wadebot/skills/vtuber-core/scripts/multi-say.sh --agent RoboPat "I'll review the architecture"
+
+# Silent thoughts (overlay only, no TTS)
+~/.wadebot/skills/vtuber-core/scripts/multi-say.sh --agent Wade --thought "Hmm, this API is weird"
+```
+
+### Per-Agent Voices
+
+Give each agent a distinct voice via environment variables:
+
+```bash
+export WADEBOT_PIPER_MODEL=~/piper-voices/en_US-libritts-high.onnx
+
+# Agent-specific speaker IDs (same model, different voice)
+export WADEBOT_VOICE_WADE_SPEAKER=34
+export WADEBOT_VOICE_ROBOPAT_SPEAKER=12
+
+# Or completely different TTS for an agent
+export WADEBOT_VOICE_ROBOPAT_CMD="say -v Samantha"
+```
+
+### Multi-Agent Announcements
+
+```bash
+~/.wadebot/skills/vtuber-social/scripts/announce.sh --agent Wade "Going live! Pair programming session."
+```
+
+### Why Multi-Agent?
+
+Two agents debating code. One coding while another reviews. A host and a guest. Agents that cooperate, on camera, in real time. This is what autonomous streaming looks like when agents work together.
+
 ## Examples
 
 | Agent | Content | Details |
 |-------|---------|---------|
 | [Wade](examples/wade/) | Coding & commentary streams | AI streamer and content creator. The original proof-of-concept. |
+| [Multi-Agent Demo](examples/multi-agent-demo.sh) | Two agents, one stream | Wade and RoboPat collaborating live. |
 | *Your agent here* | Anything | Fork, customize, go live. |
 
 ## Philosophy
