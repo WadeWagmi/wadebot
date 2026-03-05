@@ -82,9 +82,23 @@
     .old .entry-text { color: #64748b; }
     .old { border-color: #334155 !important; box-shadow: none !important; }
     .old .name { color: #64748b !important; }
+
+    /* Connection indicator */
+    .conn-status {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+      transition: background 0.3s;
+    }
+    .conn-status.connected { background: #22c55e; }
   </style>
 </head>
 <body>
+  <div class="conn-status" id="connStatus"></div>
   <div class="log-container" id="log"></div>
 
   <script>
@@ -99,6 +113,7 @@
     let nextColor = 0;
     let lastTimestamp = 0;
     let entries = [];
+    let wsConnected = false;
     
     function getAgentColorClass(agent) {
       if (!agentColors.has(agent)) {
@@ -107,15 +122,47 @@
       }
       return 'agent-' + agentColors.get(agent);
     }
+
+    // ── WebSocket connection (preferred, instant delivery) ──
+    const wsPort = parseInt(params.get('wsPort')) || (location.port ? parseInt(location.port) + 1 : 8889);
     
+    function connectWS() {
+      try {
+        const ws = new WebSocket(`ws://${location.hostname}:${wsPort}`);
+        ws.onopen = () => {
+          wsConnected = true;
+          document.getElementById('connStatus').classList.add('connected');
+          console.log('wadebot: WebSocket connected (real-time mode)');
+        };
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.timestamp > lastTimestamp && msg.text && msg.text.trim()) {
+              lastTimestamp = msg.timestamp;
+              addEntry(msg.text, msg.type || 'speech', msg.agent || 'Agent');
+            }
+          } catch (e) { /* bad message */ }
+        };
+        ws.onclose = () => {
+          wsConnected = false;
+          document.getElementById('connStatus').classList.remove('connected');
+          console.log('wadebot: WebSocket disconnected, polling fallback active');
+          setTimeout(connectWS, 3000);
+        };
+        ws.onerror = () => { wsConnected = false; };
+      } catch (e) { wsConnected = false; }
+    }
+    
+    connectWS();
+    
+    // ── Polling fallback (when WebSocket unavailable) ──
     async function checkForNew() {
+      if (wsConnected) return;
+      
       try {
         const response = await fetch('messages.json?' + Date.now());
         const data = await response.json();
-        
         if (!data.messages || !Array.isArray(data.messages)) return;
-        
-        // Process any new messages
         for (const msg of data.messages) {
           if (msg.timestamp > lastTimestamp && msg.text && msg.text.trim()) {
             lastTimestamp = msg.timestamp;
@@ -123,7 +170,6 @@
           }
         }
       } catch (e) {
-        // Also check legacy single-agent thought.json
         try {
           const response = await fetch('thought.json?' + Date.now());
           const data = await response.json();
