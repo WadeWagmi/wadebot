@@ -9,6 +9,16 @@
 #   WADEBOT_TTS_CMD        — TTS command (overrides auto-detect)
 #   WADEBOT_PIPER_MODEL    — path to piper .onnx model
 #   WADEBOT_PIPER_SPEAKER  — piper speaker id (default: 0)
+#
+# Per-agent voice config (optional):
+#   WADEBOT_VOICE_<AGENT>_SPEAKER  — piper speaker id for specific agent
+#   WADEBOT_VOICE_<AGENT>_MODEL    — piper model for specific agent
+#   WADEBOT_VOICE_<AGENT>_CMD      — custom TTS command for specific agent
+#
+# Example:
+#   export WADEBOT_VOICE_WADE_SPEAKER=34
+#   export WADEBOT_VOICE_ROBOPAT_SPEAKER=12
+#   export WADEBOT_VOICE_ROBOPAT_MODEL=~/piper-voices/en_US-libritts-high.onnx
 
 set -euo pipefail
 
@@ -72,11 +82,23 @@ if [ "$TTS" = false ]; then
   exit 0
 fi
 
-if [ -n "${WADEBOT_TTS_CMD:-}" ]; then
+# Resolve per-agent voice config (uppercase agent name, hyphens to underscores)
+AGENT_KEY=$(echo "$AGENT" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+AGENT_TTS_CMD_VAR="WADEBOT_VOICE_${AGENT_KEY}_CMD"
+AGENT_SPEAKER_VAR="WADEBOT_VOICE_${AGENT_KEY}_SPEAKER"
+AGENT_MODEL_VAR="WADEBOT_VOICE_${AGENT_KEY}_MODEL"
+
+AGENT_TTS_CMD="${!AGENT_TTS_CMD_VAR:-}"
+AGENT_SPEAKER="${!AGENT_SPEAKER_VAR:-}"
+AGENT_MODEL="${!AGENT_MODEL_VAR:-}"
+
+if [ -n "$AGENT_TTS_CMD" ]; then
+  echo "$TEXT" | eval "$AGENT_TTS_CMD"
+elif [ -n "${WADEBOT_TTS_CMD:-}" ]; then
   echo "$TEXT" | eval "$WADEBOT_TTS_CMD"
 elif command -v piper &>/dev/null || python3 -m piper --help &>/dev/null 2>&1; then
-  VOICE="${WADEBOT_PIPER_MODEL:-}"
-  SPEAKER="${WADEBOT_PIPER_SPEAKER:-0}"
+  VOICE="${AGENT_MODEL:-${WADEBOT_PIPER_MODEL:-}}"
+  SPEAKER="${AGENT_SPEAKER:-${WADEBOT_PIPER_SPEAKER:-0}}"
   if [ -z "$VOICE" ]; then
     echo "Warning: WADEBOT_PIPER_MODEL not set." >&2
     exit 1
