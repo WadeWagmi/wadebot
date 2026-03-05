@@ -178,7 +178,26 @@ else
     fi
 fi
 
-# --- 3. Install audio routing ---
+# --- 3. Install audio playback (sox) ---
+head "Audio playback"
+if has play; then
+    ok "sox (play) already installed"
+else
+    if [[ "$OS" == "macos" ]]; then
+        ensure_brew
+        info "Installing sox (audio playback)..."
+        brew install sox 2>/dev/null && ok "sox installed" || {
+            warn "sox install failed. Try: brew install sox"
+        }
+    else
+        info "Installing sox (audio playback)..."
+        sudo apt-get install -y sox libsox-fmt-all 2>/dev/null && ok "sox installed" || {
+            warn "sox install failed. Try: sudo apt-get install sox"
+        }
+    fi
+fi
+
+# --- 3b. Install audio routing ---
 head "Audio routing"
 if [[ "$OS" == "macos" ]]; then
     if brew list blackhole-2ch &>/dev/null 2>&1; then
