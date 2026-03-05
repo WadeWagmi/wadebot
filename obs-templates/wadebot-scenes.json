@@ -1,0 +1,126 @@
+{
+    "name": "WadeBot VTuber",
+    "sources": [
+        {
+            "name": "Screen Capture",
+            "type": "screen_capture",
+            "settings": {},
+            "visible": true
+        },
+        {
+            "name": "VTuber Overlay",
+            "type": "browser_source",
+            "settings": {
+                "url": "http://localhost:8888/multi-overlay.html",
+                "width": 1920,
+                "height": 1080,
+                "fps": 30,
+                "shutdown": false,
+                "restart_when_active": false,
+                "css": "body { background-color: rgba(0, 0, 0, 0); margin: 0px auto; overflow: hidden; }"
+            },
+            "visible": true,
+            "filters": [
+                {
+                    "name": "Remove Background",
+                    "type": "color_key_filter_v2",
+                    "settings": {
+                        "key_color": 16711935,
+                        "key_color_type": "custom",
+                        "similarity": 80,
+                        "smoothness": 50
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Avatar (Veadotube)",
+            "type": "window_capture",
+            "settings": {
+                "window_name": "veadotube mini"
+            },
+            "visible": true,
+            "filters": [
+                {
+                    "name": "Remove Background",
+                    "type": "color_key_filter_v2",
+                    "settings": {
+                        "key_color": 65280,
+                        "key_color_type": "green",
+                        "similarity": 80,
+                        "smoothness": 50
+                    }
+                }
+            ]
+        },
+        {
+            "name": "TTS Audio (BlackHole)",
+            "type": "coreaudio_input_capture",
+            "settings": {
+                "device_id": "BlackHole2ch_UID"
+            },
+            "visible": true
+        }
+    ],
+    "scenes": [
+        {
+            "name": "Stream",
+            "items": [
+                {
+                    "source": "Screen Capture",
+                    "x": 0,
+                    "y": 0,
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "source": "VTuber Overlay",
+                    "x": 0,
+                    "y": 0,
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "source": "Avatar (Veadotube)",
+                    "x": 1500,
+                    "y": 600,
+                    "width": 400,
+                    "height": 400
+                },
+                {
+                    "source": "TTS Audio (BlackHole)",
+                    "x": 0,
+                    "y": 0,
+                    "width": 0,
+                    "height": 0
+                }
+            ]
+        },
+        {
+            "name": "Just Chatting",
+            "items": [
+                {
+                    "source": "Avatar (Veadotube)",
+                    "x": 560,
+                    "y": 200,
+                    "width": 800,
+                    "height": 800
+                },
+                {
+                    "source": "VTuber Overlay",
+                    "x": 0,
+                    "y": 0,
+                    "width": 1920,
+                    "height": 1080
+                },
+                {
+                    "source": "TTS Audio (BlackHole)",
+                    "x": 0,
+                    "y": 0,
+                    "width": 0,
+                    "height": 0
+                }
+            ]
+        }
+    ]
+}
