@@ -37,7 +37,7 @@ except ImportError:
     HAS_WEBSOCKETS = False
 
 # ── Configuration ──
-PORT = int(os.environ.get('WADEBOT_PORT', 8888))
+PORT = int(os.environ.get('PORT', os.environ.get('WADEBOT_PORT', 8888)))
 HOST = os.environ.get('WADEBOT_HOST', '0.0.0.0')
 OVERLAY_DIR = Path(__file__).parent.parent / 'overlay'
 MAX_MESSAGES = 50
