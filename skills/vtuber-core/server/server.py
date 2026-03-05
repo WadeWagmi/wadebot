@@ -48,6 +48,7 @@ connected_clients = set()
 agent_colors = {}
 color_palette = ['#22c55e', '#6366f1', '#f59e0b', '#ec4899', '#06b6d4']
 next_color = 0
+active_speaker = None  # Current agent with the floor
 
 
 def assign_color(agent):
@@ -98,9 +99,10 @@ class OverlayHTTPHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(OVERLAY_DIR), **kwargs)
     
     def do_POST(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length)
+        
         if self.path == '/say':
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
             try:
                 data = json.loads(body)
                 agent = data.get('agent', 'Agent')
@@ -125,6 +127,58 @@ class OverlayHTTPHandler(SimpleHTTPRequestHandler):
                 
             except json.JSONDecodeError:
                 self._json_response(400, {'error': 'invalid JSON'})
+        
+        elif self.path == '/handoff':
+            try:
+                global active_speaker
+                data = json.loads(body)
+                from_agent = data.get('from', '')
+                to_agent = data.get('to', '')
+                reason = data.get('reason', '')
+                
+                if not to_agent:
+                    self._json_response(400, {'error': 'to is required'})
+                    return
+                
+                prev_speaker = active_speaker
+                active_speaker = to_agent
+                assign_color(to_agent)
+                
+                handoff_event = {
+                    'type': 'handoff',
+                    'from': from_agent,
+                    'to': to_agent,
+                    'reason': reason,
+                    'activeSpeaker': active_speaker,
+                    'timestamp': int(time.time() * 1000),
+                }
+                
+                # Add system message to overlay
+                handoff_text = f"🎤 {to_agent} has the floor"
+                if from_agent:
+                    handoff_text = f"🎤 {from_agent} → {to_agent}"
+                if reason:
+                    handoff_text += f" ({reason})"
+                
+                msg = add_message('system', handoff_text, 'handoff')
+                
+                # Broadcast handoff event via WebSocket
+                if HAS_WEBSOCKETS and connected_clients:
+                    asyncio.run_coroutine_threadsafe(
+                        broadcast(json.dumps(handoff_event)),
+                        ws_loop
+                    )
+                
+                self._json_response(200, {
+                    'ok': True,
+                    'activeSpeaker': active_speaker,
+                    'previousSpeaker': prev_speaker,
+                })
+                print(f"  🎤 Handoff: {from_agent or '(none)'} → {to_agent}" + (f" ({reason})" if reason else ""))
+                
+            except json.JSONDecodeError:
+                self._json_response(400, {'error': 'invalid JSON'})
+        
         else:
             self._json_response(404, {'error': 'not found'})
     
@@ -140,6 +194,7 @@ class OverlayHTTPHandler(SimpleHTTPRequestHandler):
                 'websockets': HAS_WEBSOCKETS,
                 'clients': len(connected_clients),
                 'agents': list(agent_colors.keys()),
+                'activeSpeaker': active_speaker,
                 'messages': len(messages),
             })
         elif self.path == '/messages':

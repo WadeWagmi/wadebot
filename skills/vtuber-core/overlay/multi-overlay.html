@@ -83,6 +83,24 @@
     .old { border-color: #334155 !important; box-shadow: none !important; }
     .old .name { color: #64748b !important; }
 
+    /* Handoff system message */
+    .handoff {
+      border: 2px solid #fbbf24 !important;
+      background: linear-gradient(135deg, rgba(30, 20, 5, 0.95) 0%, rgba(40, 30, 10, 0.95) 100%);
+      box-shadow: 0 0 25px rgba(251, 191, 36, 0.4);
+      text-align: center;
+    }
+    .handoff .name { color: #fbbf24; }
+    .handoff .entry-text { color: #fcd34d; font-weight: 700; }
+
+    /* Active speaker glow */
+    .active-speaker {
+      box-shadow: 0 0 30px rgba(34, 197, 94, 0.5), 0 0 60px rgba(34, 197, 94, 0.2) !important;
+    }
+
+    /* Inactive speaker (not holding floor) */
+    .inactive-speaker { opacity: 0.7; }
+
     /* Connection indicator */
     .conn-status {
       position: fixed;
@@ -114,6 +132,7 @@
     let lastTimestamp = 0;
     let entries = [];
     let wsConnected = false;
+    let activeSpeaker = null;
     
     function getAgentColorClass(agent) {
       if (!agentColors.has(agent)) {
@@ -137,6 +156,12 @@
         ws.onmessage = (event) => {
           try {
             const msg = JSON.parse(event.data);
+            // Handle handoff events
+            if (msg.type === 'handoff') {
+              activeSpeaker = msg.to;
+              addEntry(msg.from ? `🎤 ${msg.from} → ${msg.to}` : `🎤 ${msg.to} has the floor`, 'handoff', 'system');
+              return;
+            }
             if (msg.timestamp > lastTimestamp && msg.text && msg.text.trim()) {
               lastTimestamp = msg.timestamp;
               addEntry(msg.text, msg.type || 'speech', msg.agent || 'Agent');
@@ -189,7 +214,13 @@
       document.querySelectorAll('.entry').forEach(el => el.classList.add('old'));
       
       const entry = document.createElement('div');
-      entry.className = `entry ${type} ${colorClass}`;
+      // Add active/inactive speaker classes
+      let speakerClass = '';
+      if (activeSpeaker) {
+        speakerClass = (agent === activeSpeaker) ? ' active-speaker' : ' inactive-speaker';
+      }
+      
+      entry.className = `entry ${type} ${colorClass}${speakerClass}`;
       entry.innerHTML = `
         <div class="header">
           <span class="name">${agent}</span>
