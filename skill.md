@@ -120,36 +120,46 @@ If Veadotube Mini is installed, configure it:
 
 ## Phase 4: OBS Configuration
 
-### 4.1 Import Scene Template
-WadeBot includes a pre-built OBS scene collection. Import it:
+### Option A: Autonomous Setup (Recommended)
+If Anthropic computer use is available (ANTHROPIC_API_KEY set), run the autonomous setup agent:
 
 ```bash
-# macOS — OBS scene collections live here:
-OBS_SCENES="$HOME/Library/Application Support/obs-studio/basic/scenes"
-mkdir -p "$OBS_SCENES"
-cp ~/.wadebot/obs-templates/wadebot-scenes.json "$OBS_SCENES/"
+pip3 install anthropic 2>/dev/null
+python3 ~/.wadebot/scripts/stream_setup_agent.py
 ```
 
-The template includes:
-- **Scene: "Stream"**
-  - Display/Window Capture (for content)
-  - Browser Source → `http://localhost:8888/multi-overlay.html` (speech bubbles)
-  - Window Capture → Veadotube Mini (avatar)
-  - Audio: BlackHole 2ch input (TTS audio)
-  - Color Key filter on overlay source (magenta #ff00ff → transparent)
+This agent will:
+1. Open OBS Studio and dismiss any first-run wizards
+2. Import the WadeBot scene collection
+3. Open Veadotube Mini and load the avatar
+4. Configure Audio MIDI Setup with a Multi-Output Device
+5. Verify everything is working
 
-### 4.2 Audio Routing
+The agent uses screenshots + mouse/keyboard to navigate the desktop autonomously. No human clicking needed.
+
 Tell the user:
-> "Open System Settings → Sound → Output. Create a Multi-Output Device that includes both your speakers AND BlackHole 2ch. This lets OBS capture the TTS audio while you still hear it."
+> "I'm going to set up OBS, your avatar, and audio routing automatically. You'll see me clicking around on screen — that's normal. Just sit back and watch."
 
-On Linux, set up PulseAudio loopback:
+### Option B: Manual Setup (Fallback)
+If computer use isn't available, guide the user manually:
+
+#### 4.1 Import Scene Template
 ```bash
-pactl load-module module-loopback source=piper_output sink=obs_input
+python3 ~/.wadebot/obs-templates/generate-scene.py
 ```
 
-### 4.3 Verify OBS Setup
+This generates the scene collection directly into OBS's scenes directory. The template includes:
+- **Scene: "Stream"** — Screen Capture + Overlay + Avatar + TTS Audio
+- **Scene: "Just Chatting"** — Avatar centered + Overlay
+- Color Key filters pre-configured (magenta for overlay, green for avatar)
+
+#### 4.2 Audio Routing
 Tell the user:
-> "Open OBS Studio. Go to Scene Collection → Import, and select 'wadebot-scenes'. You should see a scene called 'Stream' with all sources pre-configured. Let me know if anything looks off."
+> "Open Audio MIDI Setup (search Spotlight). Click + → Create Multi-Output Device. Check both your speakers AND BlackHole 2ch. This lets OBS capture TTS audio while you still hear it."
+
+#### 4.3 Verify OBS Setup
+Tell the user:
+> "Open OBS Studio. Go to Scene Collection → switch to 'WadeBot VTuber'. You should see a scene called 'Stream' with all sources pre-configured. Let me know if anything looks off."
 
 ---
 
