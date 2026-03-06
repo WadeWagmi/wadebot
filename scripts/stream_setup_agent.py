@@ -318,20 +318,128 @@ of what's working and what needs attention.
         print(f"  Verification: {result[:200]}")
 
 
+def verify_setup():
+    """Check if the streaming environment is already set up. No changes made."""
+    import shutil
+    import subprocess
+    import urllib.request
+
+    print("\n🔍 WadeBot Setup Verification")
+    print("=" * 50)
+
+    checks = []
+
+    # 1. WadeBot installed
+    wadebot_dir = Path.home() / ".wadebot"
+    installed = wadebot_dir.exists() and (wadebot_dir / "start.sh").exists()
+    checks.append(("WadeBot installed", installed, str(wadebot_dir)))
+
+    # 2. Piper TTS
+    has_piper = shutil.which("piper") is not None
+    if not has_piper:
+        try:
+            subprocess.run(["python3", "-c", "import piper"], capture_output=True, check=True)
+            has_piper = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+    checks.append(("Piper TTS", has_piper, "piper / python3 -m piper"))
+
+    # 3. Voice model
+    voices = list((wadebot_dir / "voices").glob("*.onnx")) if (wadebot_dir / "voices").exists() else []
+    checks.append(("Voice model", len(voices) > 0, str(voices[0]) if voices else "~/.wadebot/voices/"))
+
+    # 4. Sox
+    has_sox = shutil.which("play") is not None
+    checks.append(("Sox (audio playback)", has_sox, "play"))
+
+    # 5. BlackHole
+    blackhole = subprocess.run(["brew", "list", "blackhole-2ch"], capture_output=True).returncode == 0
+    checks.append(("BlackHole 2ch", blackhole, "brew list blackhole-2ch"))
+
+    # 6. OBS
+    obs_installed = os.path.exists("/Applications/OBS.app")
+    checks.append(("OBS Studio", obs_installed, "/Applications/OBS.app"))
+
+    # 7. OBS scene collection
+    obs_scenes = Path.home() / "Library/Application Support/obs-studio/basic/scenes"
+    has_wadebot_scene = any("wadebot" in f.lower() or "WadeBot" in f for f in os.listdir(obs_scenes)) if obs_scenes.exists() else False
+    checks.append(("WadeBot OBS scene", has_wadebot_scene, str(obs_scenes)))
+
+    # 8. Veadotube
+    veadotube = os.path.exists("/Applications/veadotube mini.app") or os.path.exists(os.path.expanduser("~/Applications/veadotube mini.app"))
+    checks.append(("Veadotube Mini", veadotube, "/Applications/veadotube mini.app"))
+
+    # 9. Avatar files
+    avatars = list((wadebot_dir / "avatars").glob("*.*")) if (wadebot_dir / "avatars").exists() else []
+    checks.append(("Avatar files", len(avatars) > 0, str(wadebot_dir / "avatars")))
+
+    # 10. Overlay server
+    overlay_running = False
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://localhost:8888/health", timeout=2) as resp:
+            overlay_running = resp.status == 200
+    except Exception:
+        pass
+    checks.append(("Overlay server", overlay_running, "http://localhost:8888/health"))
+
+    # 11. cliclick (for computer use)
+    has_cliclick = shutil.which("cliclick") is not None
+    checks.append(("cliclick (computer use)", has_cliclick, "brew install cliclick"))
+
+    # 12. anthropic package
+    has_anthropic = False
+    try:
+        import anthropic
+        has_anthropic = True
+    except ImportError:
+        pass
+    checks.append(("anthropic Python package", has_anthropic, "pip install anthropic"))
+
+    # Print results
+    passed = 0
+    failed = 0
+    for name, ok, detail in checks:
+        status = "✅" if ok else "❌"
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+        print(f"  {status} {name}")
+        if not ok:
+            print(f"      → {detail}")
+
+    print(f"\n  {passed}/{len(checks)} checks passed", end="")
+    if failed == 0:
+        print(" — ready to stream! 🎬")
+    elif failed <= 3:
+        print(" — almost there, fix the issues above")
+    else:
+        print(f" — {failed} items need attention")
+
+    return failed == 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="Autonomous stream setup via computer use")
     parser.add_argument("--dry-run", action="store_true", help="Skip API calls, just show what would happen")
+    parser.add_argument("--verify-only", action="store_true", help="Just check if everything is set up, don't change anything")
     parser.add_argument("--steps", default="all", choices=["all", "obs", "veadotube", "audio"],
                        help="Which setup steps to run")
     args = parser.parse_args()
+
+    if args.verify_only:
+        verify_setup()
+        return
 
     # Check for API key
     if not os.environ.get("ANTHROPIC_API_KEY") and not args.dry_run:
         print("❌ ANTHROPIC_API_KEY not set. Export it or use --dry-run.")
         sys.exit(1)
 
-    agent = StreamSetupAgent(dry_run=args.dry_run)
-    agent.run_setup(steps=args.steps)
+    if True:
+        agent = StreamSetupAgent(dry_run=args.dry_run)
+        agent.run_setup(steps=args.steps)
 
 
 if __name__ == "__main__":
