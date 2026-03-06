@@ -1,0 +1,314 @@
+#!/usr/bin/env python3
+"""
+Autonomous stream setup agent — uses Anthropic computer use to visually
+configure OBS, Veadotube, and audio routing without human intervention.
+
+The agent sees the screen, clicks through UIs, and sets up everything
+needed for a live stream.
+
+Usage:
+    export ANTHROPIC_API_KEY=sk-ant-...
+    python3 stream_setup_agent.py [--dry-run] [--steps all|obs|veadotube|audio]
+
+Requires:
+    - anthropic Python package (pip install anthropic)
+    - cliclick (brew install cliclick)
+    - macOS (uses screencapture, osascript)
+"""
+
+import argparse
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+# Add parent for imports
+sys.path.insert(0, os.path.dirname(__file__))
+from computer_use import ComputerUse
+
+try:
+    import anthropic
+except ImportError:
+    print("❌ anthropic package not installed. Run: pip install anthropic")
+    sys.exit(1)
+
+
+WADEBOT_DIR = Path(os.environ.get("WADEBOT_DIR", Path.home() / ".wadebot"))
+MAX_TURNS = 30  # Safety limit on agent turns
+SCREENSHOT_DELAY = 1.5
+
+
+class StreamSetupAgent:
+    """Uses Anthropic computer use to autonomously set up a streaming environment."""
+
+    def __init__(self, dry_run=False):
+        self.dry_run = dry_run
+        self.cu = ComputerUse()
+        self.client = anthropic.Anthropic()
+        self.model = "claude-sonnet-4-20250514"
+        self.messages = []
+        self.turn_count = 0
+
+    def run_setup(self, steps="all"):
+        """Run the full autonomous setup."""
+        print("\n🎬 WadeBot Autonomous Stream Setup")
+        print("=" * 50)
+
+        if steps in ("all", "obs"):
+            print("\n📺 Phase 1: OBS Studio Setup")
+            self._setup_obs()
+
+        if steps in ("all", "veadotube"):
+            print("\n🎭 Phase 2: Veadotube Setup")
+            self._setup_veadotube()
+
+        if steps in ("all", "audio"):
+            print("\n🔊 Phase 3: Audio Routing")
+            self._setup_audio()
+
+        if steps == "all":
+            print("\n✅ Phase 4: Verification")
+            self._verify_setup()
+
+        print("\n🎬 Setup complete!")
+
+    def _agent_loop(self, task_prompt, max_turns=MAX_TURNS):
+        """Run an agent loop with computer use for a specific task."""
+        # Take initial screenshot
+        screenshot_b64 = self.cu.screenshot_base64()
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": task_prompt,
+                    },
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": screenshot_b64,
+                        },
+                    },
+                ],
+            }
+        ]
+
+        system_prompt = """You are an autonomous agent setting up a livestreaming environment on macOS.
+You have access to the computer_use tool to take screenshots, click, type, and navigate the desktop.
+
+IMPORTANT RULES:
+- Take a screenshot first to see what's on screen before acting
+- Click precisely on buttons and UI elements
+- Wait after clicks for UI to respond (use the wait action)
+- If something doesn't work, try an alternative approach
+- Report what you did after completing each step
+- Say "TASK_COMPLETE" when the task is fully done
+- Say "TASK_FAILED: reason" if you cannot complete the task
+
+Be methodical. One action at a time. Verify each step with a screenshot."""
+
+        tools = [self.cu.get_tool_definition()]
+
+        for turn in range(max_turns):
+            self.turn_count += 1
+            print(f"  Turn {turn + 1}...", end=" ", flush=True)
+
+            if self.dry_run:
+                print("[dry run - skipping API call]")
+                return "TASK_COMPLETE (dry run)"
+
+            try:
+                response = self.client.beta.messages.create(
+                    model=self.model,
+                    max_tokens=4096,
+                    system=system_prompt,
+                    tools=tools,
+                    messages=messages,
+                    betas=["computer-use-2024-10-22"],
+                )
+            except Exception as e:
+                print(f"API error: {e}")
+                return f"TASK_FAILED: API error: {e}"
+
+            # Process response
+            assistant_content = response.content
+            messages.append({"role": "assistant", "content": assistant_content})
+
+            # Check for text responses
+            for block in assistant_content:
+                if hasattr(block, "text"):
+                    print(f"\n    Agent: {block.text[:200]}")
+                    if "TASK_COMPLETE" in block.text:
+                        return block.text
+                    if "TASK_FAILED" in block.text:
+                        return block.text
+
+            # Handle tool use
+            tool_results = []
+            for block in assistant_content:
+                if block.type == "tool_use":
+                    tool_name = block.name
+                    tool_input = block.input
+
+                    action = tool_input.get("action", "")
+                    print(f"[{action}]", end=" ", flush=True)
+
+                    # Execute the tool call
+                    result = self.cu.handle_tool_call(
+                        action,
+                        coordinate=tool_input.get("coordinate"),
+                        text=tool_input.get("text"),
+                        scroll_direction=tool_input.get("scroll_direction"),
+                        scroll_amount=tool_input.get("scroll_amount"),
+                        start_coordinate=tool_input.get("start_coordinate"),
+                        duration=tool_input.get("duration"),
+                    )
+
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": [result] if isinstance(result, dict) else result,
+                    })
+
+            if tool_results:
+                messages.append({"role": "user", "content": tool_results})
+                print()
+            else:
+                print()
+                break
+
+            if response.stop_reason == "end_turn":
+                break
+
+        return "TASK_COMPLETE (max turns reached)"
+
+    def _setup_obs(self):
+        """Set up OBS Studio with wadebot scenes."""
+        # First check if OBS is installed
+        obs_path = "/Applications/OBS.app"
+        if not os.path.exists(obs_path):
+            print("  OBS not installed. Installing via brew...")
+            os.system("brew install --cask obs-studio")
+            time.sleep(5)
+
+        # Generate scene collection
+        print("  Generating OBS scene collection...")
+        os.system(f"python3 {WADEBOT_DIR}/obs-templates/generate-scene.py 2>/dev/null")
+
+        # Use computer use to open OBS and configure it
+        result = self._agent_loop("""
+Your task: Set up OBS Studio for livestreaming.
+
+Steps:
+1. Open OBS Studio (it may already be open)
+2. If this is the first launch, dismiss any auto-configuration wizard (click Cancel)
+3. Go to Scene Collection menu → Import
+4. Look for "WadeBot VTuber" scene collection and import it
+5. If import isn't available, go to Scene Collection → switch to "WadeBot VTuber"
+6. Verify the "Stream" scene is selected and has these sources:
+   - Screen Capture
+   - VTuber Overlay (browser source pointing to localhost:8888)
+   - Avatar (Veadotube)
+   - TTS Audio (BlackHole)
+7. Say TASK_COMPLETE when OBS is configured with the right scenes
+
+If OBS is already configured correctly, just verify and say TASK_COMPLETE.
+""")
+        print(f"  OBS setup: {result[:100]}")
+
+    def _setup_veadotube(self):
+        """Set up Veadotube Mini with avatar."""
+        veadotube_path = "/Applications/veadotube mini.app"
+        if not os.path.exists(veadotube_path):
+            # Check common download locations
+            alt_paths = [
+                os.path.expanduser("~/Applications/veadotube mini.app"),
+                os.path.expanduser("~/Downloads/veadotube mini.app"),
+            ]
+            found = False
+            for p in alt_paths:
+                if os.path.exists(p):
+                    veadotube_path = p
+                    found = True
+                    break
+            if not found:
+                print("  ⚠️  Veadotube Mini not found. Skipping avatar setup.")
+                print("  Download from: https://veadotube.com/")
+                return
+
+        result = self._agent_loop("""
+Your task: Set up Veadotube Mini with the wadebot avatar.
+
+Steps:
+1. Open Veadotube Mini
+2. If there are avatar files in ~/.wadebot/avatars/, load them:
+   - Set idle.png as the default/inactive state
+   - Set talking.png as the active/speaking state
+3. Set the audio input to "BlackHole 2ch" (this captures TTS output)
+4. Adjust the volume threshold so it triggers on TTS speech
+5. Verify the avatar switches between idle and talking states
+6. Say TASK_COMPLETE when Veadotube is configured
+
+If no avatar files exist, just configure the audio input and say TASK_COMPLETE.
+""")
+        print(f"  Veadotube setup: {result[:100]}")
+
+    def _setup_audio(self):
+        """Configure audio routing (BlackHole)."""
+        result = self._agent_loop("""
+Your task: Configure macOS audio routing for streaming.
+
+Steps:
+1. Open "Audio MIDI Setup" (it's in /Applications/Utilities/ or search Spotlight)
+2. Look for "BlackHole 2ch" in the device list
+3. If no Multi-Output Device exists, create one:
+   - Click the + button at bottom-left → "Create Multi-Output Device"
+   - Check both "BlackHole 2ch" and the default speakers/headphones
+   - This lets OBS capture TTS while the user still hears it
+4. Verify the Multi-Output Device is created
+5. Say TASK_COMPLETE when audio routing is configured
+
+If BlackHole isn't visible, it may need to be installed first (brew install blackhole-2ch).
+""")
+        print(f"  Audio routing: {result[:100]}")
+
+    def _verify_setup(self):
+        """Take a final screenshot and verify everything looks right."""
+        result = self._agent_loop("""
+Your task: Verify the complete streaming setup.
+
+Take a screenshot and check:
+1. Is OBS running with the "Stream" scene?
+2. Are all sources visible (Screen Capture, Overlay, Avatar, Audio)?
+3. Is Veadotube Mini running?
+4. Does the overlay show at localhost:8888?
+
+Take a final screenshot showing the complete setup and say TASK_COMPLETE with a summary
+of what's working and what needs attention.
+""")
+        print(f"  Verification: {result[:200]}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Autonomous stream setup via computer use")
+    parser.add_argument("--dry-run", action="store_true", help="Skip API calls, just show what would happen")
+    parser.add_argument("--steps", default="all", choices=["all", "obs", "veadotube", "audio"],
+                       help="Which setup steps to run")
+    args = parser.parse_args()
+
+    # Check for API key
+    if not os.environ.get("ANTHROPIC_API_KEY") and not args.dry_run:
+        print("❌ ANTHROPIC_API_KEY not set. Export it or use --dry-run.")
+        sys.exit(1)
+
+    agent = StreamSetupAgent(dry_run=args.dry_run)
+    agent.run_setup(steps=args.steps)
+
+
+if __name__ == "__main__":
+    main()
