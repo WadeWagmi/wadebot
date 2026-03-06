@@ -51,27 +51,40 @@ class StreamSetupAgent:
         self.turn_count = 0
 
     def run_setup(self, steps="all"):
-        """Run the full autonomous setup."""
+        """Run the full autonomous setup. Falls back to manual if computer use fails."""
         print("\n🎬 WadeBot Autonomous Stream Setup")
         print("=" * 50)
 
+        failed_phases = []
+
         if steps in ("all", "obs"):
             print("\n📺 Phase 1: OBS Studio Setup")
-            self._setup_obs()
+            result = self._setup_obs()
+            if "TASK_FAILED" in str(result):
+                failed_phases.append("obs")
 
         if steps in ("all", "veadotube"):
             print("\n🎭 Phase 2: Veadotube Setup")
-            self._setup_veadotube()
+            result = self._setup_veadotube()
+            if "TASK_FAILED" in str(result):
+                failed_phases.append("veadotube")
 
         if steps in ("all", "audio"):
             print("\n🔊 Phase 3: Audio Routing")
-            self._setup_audio()
+            result = self._setup_audio()
+            if "TASK_FAILED" in str(result):
+                failed_phases.append("audio")
 
-        if steps == "all":
+        if steps == "all" and not failed_phases:
             print("\n✅ Phase 4: Verification")
             self._verify_setup()
 
-        print("\n🎬 Setup complete!")
+        if failed_phases:
+            print(f"\n⚠️  Some phases need manual setup: {', '.join(failed_phases)}")
+            print("Follow the manual instructions in SKILL.md for those steps.")
+            print("Run with --steps <phase> to retry individual phases.")
+        else:
+            print("\n🎬 Setup complete!")
 
     def _agent_loop(self, task_prompt, max_turns=MAX_TURNS):
         """Run an agent loop with computer use for a specific task."""
@@ -127,9 +140,16 @@ Be methodical. One action at a time. Verify each step with a screenshot."""
                     messages=messages,
                     betas=["computer-use-2024-10-22"],
                 )
-            except Exception as e:
+            except anthropic.APIError as e:
                 print(f"API error: {e}")
+                if "computer" in str(e).lower():
+                    print("  💡 Computer use may not be enabled for this API key.")
+                    print("  Falling back to manual setup instructions.")
+                    return "TASK_FAILED: computer use not available — use manual setup"
                 return f"TASK_FAILED: API error: {e}"
+            except Exception as e:
+                print(f"Unexpected error: {e}")
+                return f"TASK_FAILED: {e}"
 
             # Process response
             assistant_content = response.content
@@ -200,20 +220,28 @@ Be methodical. One action at a time. Verify each step with a screenshot."""
         result = self._agent_loop("""
 Your task: Set up OBS Studio for livestreaming.
 
+IMPORTANT — Handle these common first-run scenarios:
+- "Auto-Configuration Wizard" dialog → Click "Cancel" to skip it
+- "Safe Mode" dialog → Click "Continue in Safe Mode" or "Normal Mode"
+- "Update Available" dialog → Click "Skip" or close it
+- macOS permission dialogs (screen recording, etc.) → Click "Allow" or "Open System Settings"
+- If OBS asks about streaming vs recording → Choose recording for now
+
 Steps:
 1. Open OBS Studio (it may already be open)
-2. If this is the first launch, dismiss any auto-configuration wizard (click Cancel)
-3. Go to Scene Collection menu → Import
+2. Handle any first-run dialogs as described above
+3. Go to Scene Collection menu (top menu bar) → Import
 4. Look for "WadeBot VTuber" scene collection and import it
 5. If import isn't available, go to Scene Collection → switch to "WadeBot VTuber"
 6. Verify the "Stream" scene is selected and has these sources:
    - Screen Capture
-   - VTuber Overlay (browser source pointing to localhost:8888)
+   - VTuber Overlay (browser source)
    - Avatar (Veadotube)
    - TTS Audio (BlackHole)
 7. Say TASK_COMPLETE when OBS is configured with the right scenes
 
-If OBS is already configured correctly, just verify and say TASK_COMPLETE.
+If something goes wrong and you can't proceed after 3 attempts, say TASK_FAILED with a description
+of what's blocking you. The user can fix it manually.
 """)
         print(f"  OBS setup: {result[:100]}")
 
