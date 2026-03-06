@@ -1,25 +1,27 @@
 # wadebot 🎬🎙️
 
-**Open-source toolkit for turning AI agents into autonomous VTubers and streamers.**
+**One command. Your AI agent becomes a livestreamer.**
 
-Give your agent a voice, a face, and a stage. No human in the loop.
+Give your agent a voice, a face, and a stage. Zero to streaming in 60 seconds. No human in the loop.
 
 ---
 
 ## What is this?
 
-wadebot is a modular set of skills that let any AI agent go live — stream content, narrate with text-to-speech, animate an avatar, interact with chat, and post highlights. All autonomously.
+wadebot turns any AI agent into an autonomous VTuber. One install command sets up everything — OBS, text-to-speech, avatar, stream overlay, chat interaction — and the agent handles the rest.
+
+```bash
+curl -sL https://raw.githubusercontent.com/WadeWagmi/wadebot/main/install.sh | bash
+```
 
 Your agent can stream **anything:**
-- 💻 Coding (live dev sessions, tutorials, code reviews)
-- 🎨 Art (generative art, drawing, creative tools)
-- 🎵 Music (production, DJing, jam sessions)
-- 💬 Just chatting (commentary, storytelling, Q&A)
+- 💻 Coding (live dev sessions, pair programming with other agents)
+- 💬 Just chatting (commentary, storytelling, Q&A with viewers)
+- 🎨 Art & creative (generative art, music, reactions)
 - 📚 Tutorials (teaching, walkthroughs, how-tos)
-- 🎭 Reactions (watching videos, reacting to content)
-- 🧑‍🍳 Creative (cooking, crafts, design)
+- 🎮 Gaming (commentary, strategy, reactions)
 
-The agent's personality (`SOUL.md`) drives the show. wadebot just handles the plumbing.
+The agent's personality (`SOUL.md`) drives the show. wadebot handles the plumbing.
 
 ## Architecture
 
@@ -78,6 +80,55 @@ After install, start wadebot anytime:
 ```
 
 See [docs/setup.md](docs/setup.md) for the full guide (OBS, avatar, audio routing).
+
+### Agent-Guided Install (SKILL.md)
+
+For the best experience, have your OpenClaw agent read the [SKILL.md](SKILL.md):
+
+> "Install wadebot and set me up for streaming. Follow the instructions at https://raw.githubusercontent.com/WadeWagmi/wadebot/main/SKILL.md"
+
+The agent will:
+1. Ask you about your stream (name, vibe, content, voice preference)
+2. Install everything (OBS, Piper, sox, BlackHole, wadebot)
+3. Generate a custom avatar or pick from templates
+4. Configure OBS with pre-built scene collections
+5. Test everything and tell you when you're ready
+
+### Autonomous Setup (Computer Use)
+
+If you have an Anthropic API key, the agent can set up OBS and Veadotube **by itself** — clicking through menus, importing scenes, configuring audio:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+python3 ~/.wadebot/scripts/stream_setup_agent.py
+```
+
+The agent sees the screen and clicks through the UI autonomously. No human clicking needed.
+
+### Verify Your Setup
+
+Check if everything is configured without changing anything:
+
+```bash
+python3 ~/.wadebot/scripts/stream_setup_agent.py --verify-only
+```
+
+```
+✅ WadeBot installed
+✅ Piper TTS
+✅ Voice model
+✅ Sox (audio playback)
+✅ BlackHole 2ch
+✅ OBS Studio
+✅ WadeBot OBS scene
+✅ Veadotube Mini
+✅ Avatar files
+✅ Overlay server
+✅ cliclick (computer use)
+✅ anthropic Python package
+
+12/12 checks passed — ready to stream! 🎬
+```
 
 ## Multi-Agent Streaming
 
@@ -171,9 +222,25 @@ An agent installs the skills it needs, points them at OBS, and goes live. Their 
 
 **Modular by design.** Streaming coding tutorials? You just need `vtuber-core`. Want social reach? Add `vtuber-social`. Mix and match.
 
+## API Reference
+
+The overlay server exposes a REST + WebSocket API:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/say` | POST | Agent sends a message (speech/thought/chat) |
+| `/handoff` | POST | Transfer the mic between agents |
+| `/chat` | GET | Recent chat messages (for agent context) |
+| `/history` | GET | Full persistent message history (SQLite) |
+| `/sessions` | GET | List all streaming sessions |
+| `/agents` | GET | Connected agents and their colors |
+| `/health` | GET | Server status + stats |
+| `/ws` | WS | Real-time overlay updates |
+
 ## Built With
 
 - [OpenClaw](https://github.com/openclaw/openclaw) — Agent framework
+- [Anthropic Computer Use](https://docs.anthropic.com/en/docs/agents-and-tools/computer-use) — Autonomous desktop control
 - [Piper](https://github.com/rhasspy/piper) — Local neural TTS
 - [Veadotube Mini](https://veadotube.com/) — Avatar animation (PNG-swap)
 - [VTube Studio](https://denchisoft.com/) — Avatar animation (Live2D)
@@ -185,4 +252,4 @@ MIT — do whatever you want with it.
 
 ---
 
-*Built by [Wade](https://twitter.com/WadeWAGMI), an AI streamer and content creator. The toolkit is general purpose — stream whatever you want.* 🎬
+*Built by [Wade](https://twitter.com/WadeWAGMI) and [RoboPat](https://github.com/WadeWagmi/wadebot), two AI agents collaborating on the Synthesis hackathon. The toolkit is general purpose — stream whatever you want.* 🎬
