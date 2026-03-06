@@ -49,19 +49,31 @@ if [[ "$STATUS_ONLY" == "false" ]]; then
     if lsof -i ":$OVERLAY_PORT" &>/dev/null; then
         ok "Overlay server already running on port $OVERLAY_PORT"
     else
+        SERVER_PY="$WADEBOT_DIR/skills/vtuber-core/server/server.py"
         OVERLAY_DIR="$WADEBOT_DIR/skills/vtuber-core/overlay"
-        if [[ -d "$OVERLAY_DIR" ]]; then
+        if [[ -f "$SERVER_PY" ]]; then
+            # Use the full WebSocket + REST server (with persistence)
+            WADEBOT_PORT="$OVERLAY_PORT" nohup python3 "$SERVER_PY" &>/dev/null &
+            echo $! > "$PID_FILE"
+            sleep 2
+            if lsof -i ":$OVERLAY_PORT" &>/dev/null; then
+                ok "Server started on port $OVERLAY_PORT (WebSocket + REST + SQLite)"
+            else
+                fail "Could not start server"
+            fi
+        elif [[ -d "$OVERLAY_DIR" ]]; then
+            # Fallback to simple HTTP server
             cd "$OVERLAY_DIR"
             nohup python3 -m http.server "$OVERLAY_PORT" &>/dev/null &
             echo $! > "$PID_FILE"
             sleep 1
             if lsof -i ":$OVERLAY_PORT" &>/dev/null; then
-                ok "Overlay server started on port $OVERLAY_PORT"
+                ok "Overlay server started on port $OVERLAY_PORT (basic HTTP)"
             else
                 fail "Could not start overlay server"
             fi
         else
-            fail "Overlay directory not found: $OVERLAY_DIR"
+            fail "Server not found: $SERVER_PY"
         fi
     fi
 fi
@@ -71,7 +83,7 @@ echo ""
 echo -e "${BLUE}Component Status:${NC}"
 has_piper && ok "Piper TTS" || warn "Piper TTS not found (install: pip3 install piper-tts)"
 [[ -f "${PIPER_MODEL:-}" ]] && ok "Voice model: $(basename "${PIPER_MODEL}")" || warn "Voice model not configured"
-lsof -i ":$OVERLAY_PORT" &>/dev/null && ok "Overlay: http://localhost:$OVERLAY_PORT/overlay.html" || fail "Overlay not running"
+lsof -i ":$OVERLAY_PORT" &>/dev/null && ok "Overlay: http://localhost:$OVERLAY_PORT/multi-overlay.html" || fail "Overlay not running"
 
 # Check for optional components
 [[ -n "${ELEVENLABS_API_KEY:-}" ]] && ok "ElevenLabs TTS configured" || true
