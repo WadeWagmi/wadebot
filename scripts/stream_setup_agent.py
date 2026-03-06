@@ -76,27 +76,23 @@ class StreamSetupAgent:
     def _agent_loop(self, task_prompt, max_turns=MAX_TURNS):
         """Run an agent loop with computer use for a specific task."""
         # Take initial screenshot
-        screenshot_b64 = self.cu.screenshot_base64()
+        if self.dry_run:
+            screenshot_b64 = ""
+        else:
+            screenshot_b64 = self.cu.screenshot_base64()
 
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": task_prompt,
-                    },
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",
-                            "data": screenshot_b64,
-                        },
-                    },
-                ],
-            }
-        ]
+        content = [{"type": "text", "text": task_prompt}]
+        if screenshot_b64:
+            content.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": screenshot_b64,
+                },
+            })
+
+        messages = [{"role": "user", "content": content}]
 
         system_prompt = """You are an autonomous agent setting up a livestreaming environment on macOS.
 You have access to the computer_use tool to take screenshots, click, type, and navigate the desktop.
