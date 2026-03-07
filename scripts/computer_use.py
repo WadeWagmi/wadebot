@@ -102,6 +102,14 @@ class ComputerUse:
         if img.width > max_width:
             ratio = max_width / img.width
             img = img.resize((max_width, int(img.height * ratio)), Image.LANCZOS)
+        # Convert RGBA to RGB for JPEG
+        if img.mode == "RGBA":
+            bg = Image.new("RGB", img.size, (255, 255, 255))
+            bg.paste(img, mask=img.split()[3])
+            img = bg
+        # Convert RGBA to RGB (JPEG doesn't support alpha)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
         # Compress as JPEG
         for quality in [80, 60, 40, 20]:
             buf = io.BytesIO()

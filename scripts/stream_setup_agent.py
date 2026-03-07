@@ -108,20 +108,32 @@ class StreamSetupAgent:
         messages = [{"role": "user", "content": content}]
 
         system_prompt = """You are an autonomous agent setting up a livestreaming environment on macOS.
-You have access to the computer_use tool to take screenshots, click, type, and navigate the desktop.
+You have access to the computer_use tool (screenshots, clicks, typing) AND the bash tool (shell commands).
+
+CRITICAL — PREFER BASH OVER GUI:
+- To open apps: use `open -a "OBS"` via bash, NOT Spotlight or dock clicking
+- To install things: use `brew install ...` via bash
+- To check if apps exist: use `ls /Applications/` via bash
+- To configure audio: use bash commands where possible
+- Only use computer_use for GUI-only tasks (clicking OBS menus, dragging sources, etc.)
 
 IMPORTANT RULES:
 - Take a screenshot first to see what's on screen before acting
-- Click precisely on buttons and UI elements
-- Wait after clicks for UI to respond (use the wait action)
-- If something doesn't work, try an alternative approach
+- Use bash to launch apps and run commands — it's faster and more reliable than clicking
+- Click precisely on buttons and UI elements when GUI interaction is needed
+- Wait after clicks for UI to respond
+- If something doesn't work after 2 attempts, try an alternative approach
 - Report what you did after completing each step
 - Say "TASK_COMPLETE" when the task is fully done
 - Say "TASK_FAILED: reason" if you cannot complete the task
 
 Be methodical. One action at a time. Verify each step with a screenshot."""
 
-        tools = [self.cu.get_tool_definition()]
+        bash_tool = {
+            "type": "bash_20250124",
+            "name": "bash",
+        }
+        tools = [self.cu.get_tool_definition(), bash_tool]
 
         for turn in range(max_turns):
             self.turn_count += 1
@@ -171,10 +183,33 @@ Be methodical. One action at a time. Verify each step with a screenshot."""
                     tool_name = block.name
                     tool_input = block.input
 
+                    if tool_name == "bash":
+                        # Handle bash tool
+                        command = tool_input.get("command", "")
+                        print(f"[bash: {command[:80]}]", end=" ", flush=True)
+                        try:
+                            proc = subprocess.run(
+                                command, shell=True, capture_output=True, text=True,
+                                timeout=30, env={**os.environ, "PATH": os.environ.get("PATH", "") + ":/usr/sbin:/usr/local/bin:/opt/homebrew/bin"}
+                            )
+                            output = (proc.stdout + proc.stderr).strip()[:2000]
+                            result = output if output else "(no output)"
+                        except subprocess.TimeoutExpired:
+                            result = "Command timed out after 30s"
+                        except Exception as e:
+                            result = f"Error: {e}"
+
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result,
+                        })
+                        continue
+
                     action = tool_input.get("action", "")
                     print(f"[{action}]", end=" ", flush=True)
 
-                    # Execute the tool call
+                    # Execute the computer use tool call
                     result = self.cu.handle_tool_call(
                         action,
                         coordinate=tool_input.get("coordinate"),
