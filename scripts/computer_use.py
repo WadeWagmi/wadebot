@@ -57,7 +57,14 @@ class ComputerUse:
 
     @staticmethod
     def _has_command(cmd):
-        return shutil.which(cmd) is not None
+        if shutil.which(cmd) is not None:
+            return True
+        # Fallback: check common macOS paths not always in PATH
+        for d in ["/usr/sbin", "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin"]:
+            if os.path.isfile(os.path.join(d, cmd)):
+                os.environ["PATH"] = os.environ.get("PATH", "") + ":" + d
+                return True
+        return False
 
     def _run(self, cmd, **kwargs):
         """Run a shell command."""
