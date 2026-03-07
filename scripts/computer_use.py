@@ -331,7 +331,7 @@ class ComputerUse:
     def get_tool_definition(self):
         """Return the Anthropic computer use tool definition."""
         return {
-            "type": "computer_20241022",
+            "type": "computer_20250124",
             "name": "computer",
             "display_width_px": self.width,
             "display_height_px": self.height,

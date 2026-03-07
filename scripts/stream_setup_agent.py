@@ -138,7 +138,7 @@ Be methodical. One action at a time. Verify each step with a screenshot."""
                     system=system_prompt,
                     tools=tools,
                     messages=messages,
-                    betas=["computer-use-2024-10-22"],
+                    betas=["computer-use-2025-01-24"],
                 )
             except anthropic.APIError as e:
                 print(f"API error: {e}")
