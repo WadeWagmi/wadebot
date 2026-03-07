@@ -100,7 +100,7 @@ class StreamSetupAgent:
                 "type": "image",
                 "source": {
                     "type": "base64",
-                    "media_type": "image/png",
+                    "media_type": "image/jpeg",
                     "data": screenshot_b64,
                 },
             })

@@ -90,12 +90,25 @@ class ComputerUse:
         self._run(cmd)
         return path
 
-    def screenshot_base64(self, region=None):
-        """Take a screenshot and return as base64-encoded PNG."""
+    def screenshot_base64(self, region=None, max_bytes=4_500_000):
+        """Take a screenshot and return as base64-encoded JPEG (compressed to fit API limits)."""
+        from PIL import Image
+        import io
         path = self.screenshot(region=region)
-        with open(path, "rb") as f:
-            data = base64.standard_b64encode(f.read()).decode()
+        img = Image.open(path)
         os.unlink(path)
+        # Resize if very large (scale to max 1920px wide)
+        max_width = 1920
+        if img.width > max_width:
+            ratio = max_width / img.width
+            img = img.resize((max_width, int(img.height * ratio)), Image.LANCZOS)
+        # Compress as JPEG
+        for quality in [80, 60, 40, 20]:
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=quality)
+            if buf.tell() <= max_bytes:
+                break
+        data = base64.standard_b64encode(buf.getvalue()).decode()
         return data
 
     # ── Mouse Control ──
