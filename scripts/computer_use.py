@@ -25,6 +25,7 @@ Usage as CLI:
 import base64
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -56,7 +57,7 @@ class ComputerUse:
 
     @staticmethod
     def _has_command(cmd):
-        return subprocess.run(["which", cmd], capture_output=True).returncode == 0
+        return shutil.which(cmd) is not None
 
     def _run(self, cmd, **kwargs):
         """Run a shell command."""
