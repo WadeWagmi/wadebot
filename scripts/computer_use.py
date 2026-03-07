@@ -359,7 +359,7 @@ class ComputerUse:
         try:
             if action == "screenshot":
                 b64 = self.screenshot_base64()
-                return {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64}}
+                return {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}}
 
             elif action == "cursor_position":
                 # Get current cursor position via cliclick
@@ -413,7 +413,7 @@ class ComputerUse:
             # Return screenshot after action
             time.sleep(0.5)
             b64 = self.screenshot_base64()
-            return {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64}}
+            return {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}}
 
         except Exception as e:
             return {"type": "text", "text": f"Error: {str(e)}"}
